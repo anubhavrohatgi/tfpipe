@@ -14,12 +14,14 @@ class Predict(Pipeline):
         self.weights = weights
         self.framework = framework
 
-        # if framework == 'tflite':
-        #     pass  # come back if we need tflite
-        # else:
-        #     self.model = tf.saved_model.load(
-        #         weights, tags=[tag_constants.SERVING])
-        #     self.predictor = self.model.signatures['serving_default']
+        if framework == 'tflite':
+            pass  # come back if we need tflite
+        else:
+            # self.model = tf.saved_model.load(
+            #     weights, tags=[tag_constants.SERVING])
+            # self.infer = self.model.signatures['serving_default']
+            self.model = tf.keras.models.load_model(weights)
+            self.predict = self.model.predict
 
         super().__init__()
 
@@ -34,16 +36,12 @@ class Predict(Pipeline):
         return data
 
     def make_predictions(self, data):
-        images = [resize(image, (self.size, self.size)) /
-                  255.0 for image in data["image"]]
-        images = np.asanyarray(images).astype(np.float32)
-        images = tf.constant(images)
+        image = [resize(data["image"], (self.size, self.size)) / 255.0]
+        image = np.asanyarray(image).astype(np.float32)
+        image = tf.constant(image)
 
-        self.model = tf.saved_model.load(
-            self.weights, tags=[tag_constants.SERVING])
-        infer = self.model.signatures['serving_default']
 
-        predictions = infer(images)
+        predictions = self.predict(image)
         data["predictions"] = predictions
 
     def cleanup(self):

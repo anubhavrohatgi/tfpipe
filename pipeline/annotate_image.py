@@ -1,26 +1,25 @@
-from cv2 import cvtColor, COLOR_RGB2BGR
 import tensorflow as tf
 import numpy as np
+from cv2 import cvtColor, COLOR_RGB2BGR
 from PIL import Image
 
 from pipeline.pipeline import Pipeline
-from pipeline.utils.utils import draw_bbox
+from core.utils import read_class_names, draw_bbox
 
 
 class AnnotateImage(Pipeline):
     """ Pipeline task for image annotation. """
 
-    def __init__(self, dst, iou_thresh, score_thresh):
+    def __init__(self, dst, iou_thresh, score_thresh, classes):
         self.dst = dst
         self.iou_thresh = iou_thresh
         self.score_thresh = score_thresh
+        self.classes = read_class_names(classes)
+
 
         super().__init__()
 
     def map(self, data):
-        dst_image = data["image"].copy()
-        data[self.dst] = dst_image
-
         self.annotate_predictions(data)
 
         return data
@@ -29,19 +28,16 @@ class AnnotateImage(Pipeline):
         if "predictions" not in data:
             return
 
-        # print(data["predictions"])
-        # for i, (key, value) in enumerate(data["predictions"].items()):
-        #     print(value.shape, key, i)
+        predictions = data["predictions"]
 
-        for predictions in data["predictions"].values():
-            boxes = predictions[:, :, 0:4]
-            conf = predictions[:, :, 4:]
+        boxes = predictions[:, :, 0:4]
+        conf = predictions[:, :, 4:]
 
         boxes = tf.reshape(boxes, (boxes.shape[0], -1, 1, 4))
         scores = tf.reshape(
             conf, (boxes.shape[0], -1, tf.shape(conf)[-1]))
 
-        result = tf.image.combined_non_max_suppression(
+        boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
             boxes,
             scores,
             max_output_size_per_class=50,
@@ -50,20 +46,9 @@ class AnnotateImage(Pipeline):
             score_threshold=self.score_thresh
         )
 
-        def f(x): return x.numpy()
+        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
 
-        boxes, scores, classes, valid_detections = map(f, result)
+        annotated_image = draw_bbox(data["image"].copy(), pred_bbox, self.classes)
+        annotated_image = Image.fromarray(annotated_image.astype(np.uint8))
 
-        # print(classes)
-        # print(valid_detections)
-
-        annotated_images = list()
-        for i, image in enumerate(data["image"]):
-            pred_bbox = [boxes[i:i+1], scores[i:i+1],
-                         classes[i:i+1], valid_detections[i:i+1]]
-            annotated_image = draw_bbox(image, pred_bbox)
-            annotated_image = Image.fromarray(annotated_image.astype(np.uint8))
-
-            annotated_images.append(annotated_image)
-
-        data[self.dst] = annotated_images
+        data[self.dst] = annotated_image

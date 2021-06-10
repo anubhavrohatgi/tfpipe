@@ -3,15 +3,19 @@
 from easydict import EasyDict as edict
 
 
+
 __C = edict()
 # Consumers can get config by: from config import cfg
 
 cfg = __C
 
+# General parameters
+__C.FONTSCALE = .5
+
 # YOLO options
 __C.YOLO = edict()
 
-__C.YOLO.CLASSES = "./data/classes/coco.names"
+__C.YOLO.CLASSES = "./data/classes/mika.names" #"./data/classes/coco.names"
 __C.YOLO.ANCHORS = [12, 16, 19, 36, 40, 28, 36, 75,
                     76, 55, 72, 146, 142, 110, 192, 243, 459, 401]
 __C.YOLO.ANCHORS_V3 = [10, 13, 16, 30, 33, 23, 30,

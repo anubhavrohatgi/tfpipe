@@ -8,13 +8,11 @@ from pipeline.pipeline import Pipeline
 class ImageOutput(Pipeline):
     """ Pipeline task that delivers the images to some output. """
 
-    def __init__(self, dst, dir, show_img, full_base,
-                 image_ext=".jpg", jpg_quality=None, png_compression=None):
-
+    def __init__(self, dst, args, image_ext=".jpg", jpg_quality=None, png_compression=None):
         self.dst = dst
-        self.dir = dir
-        self.show_img = show_img
-        self.full_base = full_base
+        self.dir = args.output
+        self.show_img = args.show
+        self.full_base = args.full_output_path
         self.image_ext = image_ext
 
         # 0 - 100 (higher means better). Default is 95.
@@ -27,11 +25,7 @@ class ImageOutput(Pipeline):
 
     def map(self, data):
 
-        # for image_id, image in zip(data["image_id"], data[self.dst]):
-        #     self.export_img(image_id, image)
-        print("hi")
-        for _ in map(self.export_img, data["image_id"], data[self.dst]):
-            pass
+        self.export_img(data["image_id"], data[self.dst])
 
         return data
 
@@ -54,7 +48,7 @@ class ImageOutput(Pipeline):
 
         path = os.path.join(dirname, basename)
 
-        print("Saving Image: " + path)
+        # print("Saving Image: " + path)
 
         if self.image_ext == ".jpg":
             cv2.imwrite(path, image,
