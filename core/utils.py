@@ -1,9 +1,39 @@
+import os
 import cv2
 import random
 import colorsys
 import numpy as np
 from core.config import cfg
+from ujson import load
 
+def valid_extension(path):
+    """ Returns True if `path` has a valid extension for an image. """
+    
+    return os.path.splitext(path)[-1] in cfg.VALID_EXTS
+
+def images_from_file(path: str, root: str = ""):
+    """ Returns list of image paths from a file path. """
+
+    if path.endswith('.json'):
+        images = load(open(os.path.join(root, path), 'r'))
+    else:
+        images = [os.path.join(root, path)] if valid_extension(path) else []
+    
+    return images
+
+def images_from_dir(path: str):
+    """ Returns a list of paths to valid images. """
+
+    if os.path.isdir(path):
+        images = list()
+        for root, _, files in os.walk(path):
+            for img in files:
+                if valid_extension(img):
+                    images += images_from_file(img, root)
+    else:
+        images = images_from_file(path)
+
+    return images
 
 def read_class_names(class_file_name):
     names = {}
@@ -25,18 +55,18 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
     random.shuffle(colors)
     random.seed(None)
 
-    out_boxes, out_scores, out_classes, num_boxes = bboxes
-    for i in range(num_boxes[0]):
-        if (class_ind := int(out_classes[0][i])) < 0 or class_ind > num_classes:
+    out_boxes, out_scores, out_classes, num_boxes = [b[0] for b in bboxes]
+    for i in range(num_boxes):
+        if (class_ind := int(out_classes[i])) < 0 or class_ind > num_classes:
             continue
-        coor = out_boxes[0][i]
+        coor = out_boxes[i]
         coor[0] = coor[0] * image_h
         coor[2] = coor[2] * image_h
         coor[1] = coor[1] * image_w
         coor[3] = coor[3] * image_w
         
 
-        score = out_scores[0][i]
+        score = out_scores[i]
         bbox_color = colors[class_ind]
         bbox_thick = int(0.6 * (image_h + image_w) / 600)
         c1, c2 = (int(coor[1]), int(coor[0])), (int(coor[3]), int(coor[2]))
@@ -55,3 +85,54 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
                         
     return image
 
+
+def get_meta(shape, bboxes, classes):
+    """ Returns the dection metadata as a list of dictionary entries. """
+
+    num_classes = len(classes)
+    image_h, image_w, *_ = shape
+
+    out_boxes, out_scores, out_classes, num_boxes = [b[0] for b in bboxes]
+
+    metadata = list()
+    for i in range(num_boxes):
+        if (class_ind := int(out_classes[i])) < 0 or class_ind > num_classes:
+            continue
+        
+        coor = out_boxes[i]
+        x1 = coor[1] * image_w
+        x2 = coor[3] * image_w
+        y1 = coor[0] * image_h
+        y2 = coor[2] * image_h
+
+        score = out_scores[i]
+
+        d = {"id": class_ind, "score": float(score), "x": x1, "y": y1, "w": x2 - x1, "h": y2 - y1}
+        metadata.append(d)
+    
+    return metadata
+
+def convert_redis(file_path, shape, num_classes, bboxes):
+    """ Converts predictions to the Redis output format. """
+
+    image_h, image_w, *_ = shape
+
+    out_boxes, out_scores, out_classes, num_boxes = [b[0] for b in bboxes]
+
+    output = ""
+
+    for i in range(num_boxes):
+        if (class_ind := int(out_classes[i])) < 0 or class_ind > num_classes:
+            continue
+        
+        coor = out_boxes[i]
+        x1 = coor[1] * image_w
+        x2 = coor[3] * image_w
+        y1 = coor[0] * image_h
+        y2 = coor[2] * image_h
+
+        score = out_scores[i]
+
+        output += f"{file_path},{class_ind},{x1},{y1},{x2},{y2},{score},"
+    
+    return output

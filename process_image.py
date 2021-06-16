@@ -1,4 +1,6 @@
 import os
+import json
+from redis import Redis
 from multiprocessing import set_start_method
 
 from core.config import cfg
@@ -10,7 +12,18 @@ from pipeline.predict import Predict
 from pipeline.annotate_image import AnnotateImage
 from pipeline.image_output import ImageOutput
 
+# Redis
+from pipeline.redis_capture import RedisCapture
+from pipeline.redis_annotate import RedisAnnotate
+from pipeline.redis_output import RedisOutput
+
 from time import time
+
+# TODO
+# convert to python 3.6.5
+# update readme for redis
+# redis smb://dom1.jhuapl.edu/dept/AOS/AOSshare/PM-266_Killer_Applications/
+# readme here smb://dom1.jhuapl.edu/dept/AOS/AOSshare/PM-266_Killer_Applications/Integration/1015_Alion
 
 def parse_args():
     """ Parses command line arguments. """
@@ -20,11 +33,11 @@ def parse_args():
     # Parse command line arguments
     ap = argparse.ArgumentParser(
         description="TensorFlow YOLOv4 Image Processing Pipeline")
-    ap.add_argument("-w", "--weights", required=True,
-                    help="path to weights file")
-    ap.add_argument("-i", "--input", required=True,
+    ap.add_argument("-i", "--input", default="data/images.json",
                     help="path to the input image/directory or list of file paths stored in a json file")
-    ap.add_argument("-s", "--size", type=int, default=416,
+    ap.add_argument("-w", "--weights", default="checkpoints/yolov4-672",
+                    help="path to weights file")
+    ap.add_argument("-s", "--size", type=int, default=672,
                     help="the value to which the images will be resized")
 
     # Model Settings
@@ -43,8 +56,18 @@ def parse_args():
                     help="saves output to path including its respective input's full basename")
     ap.add_argument("--show", action="store_true",
                     help="display image after prediction")
+    ap.add_argument("--meta", action="store_true",
+                    help="save prediction metadata")
 
-    # Mutliprocessing settings
+    # Redis Settings
+    ap.add_argument("-r", "--redis", action="store_true", 
+                    help="signal to use redis capture")
+    ap.add_argument("-rh", "--redis-host", default=cfg.REDIS_HOST, 
+                    help="the host name for redis")
+    ap.add_argument("-rp", "--redis-port", default=cfg.REDIS_PORT, 
+                    help="the port for redis")
+
+    # Mutliprocessing Settings
     ap.add_argument("--gpus", type=int, default=1,
                     help="number of GPUs (default: 1)")
     ap.add_argument("--cpus", type=int, default=0,
@@ -67,8 +90,6 @@ def main(args):
     output_type = "vis_image"
 
     # Create pipeline tasks
-    image_input = ImageInput(path=args.input)
-
     if not args.single_process and False:
         set_start_method("spawn", force=True)
         predict = AsyncPredict(num_gpus=args.gpus,
@@ -78,10 +99,22 @@ def main(args):
     else:
         predict = Predict(args.weights, args.framework, size=args.size)
 
-    annotate_image = AnnotateImage(output_type, args.iou, args.score, args.classes)
+    if args.redis:
+        redis = Redis(host=args.redis_host, 
+                      port=args.redis_port, 
+                      db=0, 
+                      charset='utf-8', 
+                      decode_responses=True)
 
-    # temp image output for testing
-    image_output = ImageOutput(output_type, args)
+        image_input = RedisCapture(redis)
+        annotate_image = RedisAnnotate(output_type, args.iou, args.score, args.classes)
+        image_output = RedisOutput(redis, output_type)
+    else:
+        image_input = ImageInput(path=args.input, size=args.size, meta=args.meta)
+        annotate_image = AnnotateImage(output_type, args.iou, args.score, args.meta, args.classes)
+        image_output = ImageOutput(output_type, args)
+
+
 
     # Create the image processing pipeline
     pipeline = (image_input
@@ -91,15 +124,28 @@ def main(args):
 
     # Main Loop
     t = time()
+    index = 0
     results = list()
     while image_input.is_working() or predict.is_working():
-        if (result := pipeline.map(None)) != Pipeline.Empty:
+        if (result := pipeline.map(None)) != Pipeline.Skip:
             results.append(result)
+
+            index += 1
+            print("Current Index: " + str(index))
+
             
     print(f"Runtime: {time() - t} s")
 
+    image_input.cleanup()
     predict.cleanup()
-    # print("Results: " + str(result))
+
+    # Metadata
+    if args.meta:
+        results = [data["meta"] for data in results]
+        with open(os.path.join("output", "tf_meta.json"), 'w') as f:
+                  json.dump(results, f)
+
+    # print("Results: " + str(results))
 
 
 if __name__ == '__main__':

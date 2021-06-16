@@ -13,6 +13,7 @@ class ImageOutput(Pipeline):
         self.dir = args.output
         self.show_img = args.show
         self.full_base = args.full_output_path
+        self.meta = args.meta
         self.image_ext = image_ext
 
         # 0 - 100 (higher means better). Default is 95.
@@ -25,11 +26,11 @@ class ImageOutput(Pipeline):
 
     def map(self, data):
 
-        self.export_img(data["image_id"], data[self.dst])
+        self.export_img(data["image_id"], data[self.dst], data)
 
         return data
 
-    def export_img(self, image_id, image):
+    def export_img(self, image_id, image, data):
         """ Saves image to a file. Also displays the image if self.show is True. """
 
         if self.show_img:
@@ -49,6 +50,11 @@ class ImageOutput(Pipeline):
         path = os.path.join(dirname, basename)
 
         # print("Saving Image: " + path)
+
+        # Metadata
+        if self.meta:
+            data["meta"] = {"image": basename, "metadata": data["meta"]}
+        
 
         if self.image_ext == ".jpg":
             cv2.imwrite(path, image,

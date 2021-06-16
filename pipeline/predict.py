@@ -17,9 +17,6 @@ class Predict(Pipeline):
         if framework == 'tflite':
             pass  # come back if we need tflite
         else:
-            # self.model = tf.saved_model.load(
-            #     weights, tags=[tag_constants.SERVING])
-            # self.infer = self.model.signatures['serving_default']
             self.model = tf.keras.models.load_model(weights)
             self.predict = self.model.predict
 

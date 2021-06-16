@@ -11,11 +11,19 @@ cfg = __C
 
 # General parameters
 __C.FONTSCALE = .5
+__C.MTAUR_DIMENSIONS = (720, 1280, 3)
+__C.VALID_EXTS = [".jpg", ".png", ".json", ""]
+
+
+# Redis parameters
+__C.REDIS_HOST = "127.0.0.1"
+__C.REDIS_PORT = 6379
+__C.RED_INIT_IMG = "data/init.jpg"
 
 # YOLO options
 __C.YOLO = edict()
 
-__C.YOLO.CLASSES = "./data/classes/mika.names" #"./data/classes/coco.names"
+__C.YOLO.CLASSES = "./data/classes/coco.names"
 __C.YOLO.ANCHORS = [12, 16, 19, 36, 40, 28, 36, 75,
                     76, 55, 72, 146, 142, 110, 192, 243, 459, 401]
 __C.YOLO.ANCHORS_V3 = [10, 13, 16, 30, 33, 23, 30,

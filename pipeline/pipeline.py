@@ -1,20 +1,17 @@
 class Pipeline(object):
-    """Pipeline class for individual input-based submission to the pipeline."""
-
-    class Empty:
-        pass
+    """ Pipeline class for individual input-based submission to the pipeline. """
 
     class Skip:
         pass
 
-    class Stop:
+    class Exit:
         pass
 
     def __init__(self, source=list()):
         self.source = source
 
     def __rshift__(self, other):
-        """Allows Pipeline objects to connect using the `>>` operator."""
+        """ Allows Pipeline objects to connect using the `>>` operator. """
 
         if other is not None:
             other.map = self.create_map(other.map)
@@ -23,30 +20,34 @@ class Pipeline(object):
             return self
 
     def create_map(self, other_map):
-        """Returns a new map function that calls self.map and forward its return value to other_map."""
+        """ Returns a new map function that calls self.map and forward its return value to other_map. """
 
         def map(data):
-
-            data = self.map(data)
-
-            return other_map(data) if data != Pipeline.Skip else Pipeline.Empty
+            if data == Pipeline.Skip or (new_data := self.map(data)) == Pipeline.Skip:
+                return Pipeline.Skip
+            else: 
+                return other_map(new_data)
 
         return map
 
     def map(self, data):
-        """Overwrite to map the pipeline data."""
+        """ Overwrite to map the pipeline data. """
 
         return data
 
     def filter(self, data):
-        """Overwrite to filter out the pipeline data."""
+        """ Overwrite to filter out the pipeline data. """
 
         return True
 
     def is_working(self):
-        """Overwrite to determine how execution terminates."""
+        """ Overwrite to determine how execution terminates. """
 
         return True
+
+    def cleanup(self):
+        """ Overwrite to set cleanup. """
+        pass
 
 
 if __name__ == '__main__':
