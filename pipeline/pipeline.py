@@ -26,10 +26,12 @@ class Pipeline(object):
         """ Returns a new map function that calls self.map and forward its return value to other_map. """
 
         def map(data):
-            if data == Pipeline.Skip or (new_data := self.map(data)) == Pipeline.Skip:
+            if data == Pipeline.Skip:
                 return Pipeline.Skip
-            else:
-                return other_map(new_data)
+
+            new_data = self.map(data)
+
+            return other_map(new_data) if new_data != Pipeline.Skip else Pipeline.Skip
 
         return map
 

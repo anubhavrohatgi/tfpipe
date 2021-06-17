@@ -138,7 +138,8 @@ def main(args):
     index = 0
     results = list()
     while image_input.is_working() or predict.is_working():
-        if (result := pipeline.map(None)) != Pipeline.Skip:
+        result = pipeline.map(None)
+        if result != Pipeline.Skip:
             results.append(result)
 
             # print("Current Index: " + str(index))

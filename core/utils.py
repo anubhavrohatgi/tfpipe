@@ -57,8 +57,10 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
 
     out_boxes, out_scores, out_classes, num_boxes = [b[0] for b in bboxes]
     for i in range(num_boxes):
-        if (class_ind := int(out_classes[i])) < 0 or class_ind > num_classes:
+        class_ind = int(out_classes[i])
+        if class_ind < 0 or class_ind > num_classes:
             continue
+
         coor = out_boxes[i]
         coor[0] = coor[0] * image_h
         coor[2] = coor[2] * image_h
@@ -96,7 +98,8 @@ def get_meta(shape, bboxes, classes):
 
     metadata = list()
     for i in range(num_boxes):
-        if (class_ind := int(out_classes[i])) < 0 or class_ind > num_classes:
+        class_ind = int(out_classes[i])
+        if class_ind < 0 or class_ind > num_classes:
             continue
         
         coor = out_boxes[i]
@@ -122,7 +125,8 @@ def convert_redis(file_path, shape, num_classes, bboxes):
     output = ""
 
     for i in range(num_boxes):
-        if (class_ind := int(out_classes[i])) < 0 or class_ind > num_classes:
+        class_ind = int(out_classes[i])
+        if class_ind < 0 or class_ind > num_classes:
             continue
         
         coor = out_boxes[i]
