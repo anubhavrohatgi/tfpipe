@@ -1,5 +1,6 @@
 import os
 import json
+import tensorflow as tf
 from redis import Redis
 from multiprocessing import set_start_method
 
@@ -7,7 +8,7 @@ from core.config import cfg
 
 from pipeline.pipeline import Pipeline
 from pipeline.image_input import ImageInput
-# from pipeline.async_predict import AsyncPredict
+from pipeline.async_predict import AsyncPredict
 from pipeline.predict import Predict
 from pipeline.annotate_image import AnnotateImage
 from pipeline.image_output import ImageOutput
@@ -24,6 +25,7 @@ from time import time
 # update readme for redis
 # redis smb://dom1.jhuapl.edu/dept/AOS/AOSshare/PM-266_Killer_Applications/
 # readme here smb://dom1.jhuapl.edu/dept/AOS/AOSshare/PM-266_Killer_Applications/Integration/1015_Alion
+
 
 def parse_args():
     """ Parses command line arguments. """
@@ -47,7 +49,8 @@ def parse_args():
                     help="use yolo-tiny instead of yolo")
     ap.add_argument("--iou", default=0.45, help="iou threshold")
     ap.add_argument("--score", default=0.25, help="score threshold")
-    ap.add_argument("--classes", default=cfg.YOLO.CLASSES, help="file path to classes")
+    ap.add_argument("--classes", default=cfg.YOLO.CLASSES,
+                    help="file path to classes")
 
     # Output Settings
     ap.add_argument("-o", "--output", default="output",
@@ -60,20 +63,18 @@ def parse_args():
                     help="save prediction metadata")
 
     # Redis Settings
-    ap.add_argument("-r", "--redis", action="store_true", 
+    ap.add_argument("-r", "--redis", action="store_true",
                     help="signal to use redis capture")
-    ap.add_argument("-rh", "--redis-host", default=cfg.REDIS_HOST, 
+    ap.add_argument("-rh", "--redis-host", default=cfg.REDIS_HOST,
                     help="the host name for redis")
-    ap.add_argument("-rp", "--redis-port", default=cfg.REDIS_PORT, 
+    ap.add_argument("-rp", "--redis-port", default=cfg.REDIS_PORT,
                     help="the port for redis")
 
     # Mutliprocessing Settings
     ap.add_argument("--gpus", type=int, default=1,
                     help="number of GPUs (default: 1)")
     ap.add_argument("--cpus", type=int, default=0,
-                    help="number of CPUs (default: 1)")
-    ap.add_argument("--queue-size", type=int, default=3,
-                    help="queue size per process (default: 3)")
+                    help="number of CPUs (default: 0)")
     ap.add_argument("--single-process", action="store_true",
                     help="force the pipeline to run in a single process")
 
@@ -86,41 +87,45 @@ def main(args):
     # Create output directory if needed
     os.makedirs(args.output, exist_ok=True)
 
+    # GPU Logging
+    tf.debugging.set_log_device_placement(True)
+    gpus = tf.config.list_physical_devices('GPU')
+    for gpu in gpus:
+        tf.config.experimental.set_memory_growth(gpu, True)
+
     # Image output type
     output_type = "vis_image"
 
     # Create pipeline tasks
-    if not args.single_process and False:
+    if not args.single_process:
         set_start_method("spawn", force=True)
-        predict = AsyncPredict(num_gpus=args.gpus,
-                               num_cpus=args.cpus,
-                               queue_size=args.queue_size,
-                               ordered=False)
+        predict = AsyncPredict(args)
     else:
-        predict = Predict(args.weights, args.framework, size=args.size)
+        predict = Predict(args)
 
     if args.redis:
-        redis = Redis(host=args.redis_host, 
-                      port=args.redis_port, 
-                      db=0, 
-                      charset='utf-8', 
+        redis = Redis(host=args.redis_host,
+                      port=args.redis_port,
+                      db=0,
+                      charset='utf-8',
                       decode_responses=True)
 
         image_input = RedisCapture(redis)
-        annotate_image = RedisAnnotate(output_type, args.iou, args.score, args.classes)
+        annotate_image = RedisAnnotate(
+            output_type, args.iou, args.score, args.classes)
         image_output = RedisOutput(redis, output_type)
     else:
-        image_input = ImageInput(path=args.input, size=args.size, meta=args.meta)
-        annotate_image = AnnotateImage(output_type, args.iou, args.score, args.meta, args.classes)
+        image_input = ImageInput(
+            path=args.input, size=args.size, meta=args.meta)
+        annotate_image = AnnotateImage(
+            output_type, args.iou, args.score, args.meta, args.classes)
         image_output = ImageOutput(output_type, args)
-
-
 
     # Create the image processing pipeline
     pipeline = (image_input
-                >> predict
-                >> annotate_image
-                >> image_output)
+                >> predict)
+    # >> annotate_image
+    # >> image_output)
 
     # Main Loop
     t = time()
@@ -133,7 +138,8 @@ def main(args):
             index += 1
             print("Current Index: " + str(index))
 
-            
+        if not index:
+            t = time()
     print(f"Runtime: {time() - t} s")
 
     image_input.cleanup()
@@ -143,7 +149,7 @@ def main(args):
     if args.meta:
         results = [data["meta"] for data in results]
         with open(os.path.join("output", "tf_meta.json"), 'w') as f:
-                  json.dump(results, f)
+            json.dump(results, f)
 
     # print("Results: " + str(results))
 

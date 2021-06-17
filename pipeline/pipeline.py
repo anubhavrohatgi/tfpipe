@@ -4,6 +4,9 @@ class Pipeline(object):
     class Skip:
         pass
 
+    class Empty:
+        pass
+
     class Exit:
         pass
 
@@ -25,7 +28,7 @@ class Pipeline(object):
         def map(data):
             if data == Pipeline.Skip or (new_data := self.map(data)) == Pipeline.Skip:
                 return Pipeline.Skip
-            else: 
+            else:
                 return other_map(new_data)
 
         return map

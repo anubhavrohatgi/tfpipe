@@ -1,3 +1,5 @@
+test.bat
+data/images/
 checkpoints/
 output/
 data/yolov4.weights

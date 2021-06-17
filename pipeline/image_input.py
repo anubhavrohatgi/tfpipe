@@ -23,7 +23,6 @@ class ImageInput(Pipeline):
 
         super().__init__()
 
-
     def is_working(self):
         """ Returns True if there are images yet to be captured. """
 
@@ -36,13 +35,14 @@ class ImageInput(Pipeline):
 
     def map(self, _):
         """ Returns the image content of the next image in the input. """
-        
-        if not self.image_ready():
-            return Pipeline.Skip
+
+        if not self.image_ready() or not self.is_working():
+            # return Pipeline.Skip
+            return Pipeline.Empty
 
         image_file = self.images.popleft()
 
-        print("Current File: " + image_file)
+        # print("Current File: " + image_file)
 
         image = cv2.imread(image_file)
 
@@ -52,11 +52,12 @@ class ImageInput(Pipeline):
                     np.fromfile(image_file, dtype=np.uint8), cfg.MTAUR_DIMENSIONS)
             except Exception as e:
                 print(f"Got Exception: {e}")
-                print(f"*** Error: byte length not recognized or file: {image_file} ***")
+                print(
+                    f"*** Error: byte length not recognized or file: {image_file} ***")
                 return Pipeline.Skip
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        
+
         if self.meta:
             image = cv2.resize(image, (self.size, self.size))
 
