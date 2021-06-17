@@ -123,9 +123,15 @@ def main(args):
 
     # Create the image processing pipeline
     pipeline = (image_input
-                >> predict
-                >> annotate_image
-                >> image_output)
+                >> predict)
+    # >> annotate_image
+    # >> image_output)
+
+    # Wait for models to load before starting input stream
+    while not predict.infer_ready():
+        pass
+
+    print("Predictors ready! Beginning processing...")
 
     # Main Loop
     t = time()
@@ -135,12 +141,12 @@ def main(args):
         if (result := pipeline.map(None)) != Pipeline.Skip:
             results.append(result)
 
-            index += 1
             # print("Current Index: " + str(index))
+            index += 1
 
-        if index == 1:
-            t = time()
-    print(f"Runtime: {time() - t} s")
+    runtime = time() - t
+    print(
+        f"Images Processed: {index} imgs | Runtime: {runtime} s | Rate: {index / runtime} imgs/s")
 
     image_input.cleanup()
     predict.cleanup()

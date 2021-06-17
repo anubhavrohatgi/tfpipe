@@ -45,6 +45,5 @@ class AnnotateImage(Pipeline):
 
         annotated_image = draw_bbox(
             data["image"].copy(), pred_bbox, self.classes)
-        annotated_image = Image.fromarray(annotated_image.astype(np.uint8))
 
         data[self.dst] = annotated_image

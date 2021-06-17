@@ -33,10 +33,7 @@ class ImageOutput(Pipeline):
     def export_img(self, image_id, image, data):
         """ Saves image to a file. Also displays the image if self.show is True. """
 
-        if self.show_img:
-            image.show_img()
-
-        image = cv2.cvtColor(array(image), cv2.COLOR_BGR2RGB)
+        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         # Prepare output for image based on image_id
         dirname, basename = os.path.split(image_id)
@@ -49,12 +46,14 @@ class ImageOutput(Pipeline):
 
         path = os.path.join(dirname, basename)
 
-        # print("Saving Image: " + path)
+        # Display
+        if self.show_img:
+            cv2.imshow(basename, image)
+            cv2.waitKey(0)
 
         # Metadata
         if self.meta:
             data["meta"] = {"image": basename, "metadata": data["meta"]}
-        
 
         if self.image_ext == ".jpg":
             cv2.imwrite(path, image,

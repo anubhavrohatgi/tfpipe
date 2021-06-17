@@ -1,11 +1,12 @@
+import cv2
 import tensorflow as tf
 import numpy as np
-from cv2 import resize
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Value
 
-from tensorflow.python.eager.context import num_gpus
-
+from core.config import cfg
 from pipeline.pipeline import Pipeline
+
+from time import time
 
 
 class AsyncPredictor(Process):
@@ -18,6 +19,8 @@ class AsyncPredictor(Process):
         self.device = device
         self.task_queue = task_queue
         self.result_queue = result_queue
+
+        self.ready = Value('i', 0)
 
         super().__init__(daemon=True)
 
@@ -33,8 +36,16 @@ class AsyncPredictor(Process):
             else:
                 model = tf.keras.models.load_model(self.weights)
                 predict = model.predict
-            # print("Model Finished for Device: " + self.device)
 
+            print("Inferencing Test Image: " + self.device)
+            image = cv2.cvtColor(cv2.imread(cfg.INIT_IMG), cv2.COLOR_BGR2RGB)
+            image = [cv2.resize(image, (self.size, self.size)) / 255.0]
+            image = np.asanyarray(image).astype(np.float32)
+            predict(tf.constant(image))
+
+            # Set ready flag
+            self.ready.value = 1
+            print("Ready: " + self.device)
             # counter = 0
             while True:
                 # print(self.device)
@@ -42,8 +53,9 @@ class AsyncPredictor(Process):
                 if data == Pipeline.Exit:
                     break
 
+                t = time()
                 predictions = predict(data["predictions"])
-
+                print(f"Device: {self.device} | Time: {time() - t} s")
                 conf = predictions[:, :, 4:]
 
                 data["predictions"] = (tf.reshape(predictions[:, :, 0:4], (1, -1, 1, 4)),
@@ -110,6 +122,11 @@ class AsyncPredict(Pipeline):
         """ Returns True if there is element in the output queue. """
 
         return not self.result_queue.empty()
+
+    def infer_ready(self):
+        """ Returns True when each of the predictors are ready for inference. """
+
+        return all([worker.ready.value for worker in self.workers])
 
     def is_working(self):
         """ Working while num inputs != num outputs and while queues are not empty. """

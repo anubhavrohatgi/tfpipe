@@ -1,6 +1,6 @@
-import os
 import cv2
 import numpy as np
+from tensorflow import constant
 from multiprocessing import Process, Queue
 
 from core.config import cfg
@@ -11,7 +11,7 @@ from pipeline.pipeline import Pipeline
 class RedisCapture(Pipeline):
     """ Pipeline task to capture images from Redis. """
 
-    class _Worker(Process):
+    class _InputStream(Process):
         def __init__(self, redis, image_queue):
             self.pub = redis.pubsub()
             self.image_queue = image_queue
@@ -44,7 +44,7 @@ class RedisCapture(Pipeline):
         # Used to complete overhead stemming from the first inference before Redis connection
         # image_queue.put(cfg.RED_INIT_IMG)
 
-        self._worker = self._Worker(redis, image_queue)
+        self._worker = self._InputStream(redis, image_queue)
 
         super().__init__(source=image_queue)
 
@@ -65,11 +65,11 @@ class RedisCapture(Pipeline):
         """ Returns the image content of the next image in the Redis stream. """
 
         if not self.image_ready():
-            return Pipeline.Skip
+            return Pipeline.Empty
 
         image_file = self.source.get()
 
-        print("Current File: " + image_file)
+        # print("Current File: " + image_file)
 
         image = cv2.imread(image_file)
 
@@ -81,13 +81,17 @@ class RedisCapture(Pipeline):
                 print(f"Got Exception: {e}")
                 print(
                     f"*** Error: byte length not recognized or file: {image_file} ***")
-                return Pipeline.Skip
+                return Pipeline.Empty
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
+        pre_proc = [cv2.resize(image, (self.size, self.size)) / 255.0]
+        pre_proc = constant(np.asanyarray(pre_proc).astype(np.float32))
+
         data = {
             "image_id": image_file,
-            "image": image
+            "image": image,
+            "predictions": pre_proc
         }
 
         return data

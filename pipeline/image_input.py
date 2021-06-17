@@ -51,7 +51,7 @@ class ImageInput(Pipeline):
                 print(f"Got Exception: {e}")
                 print(
                     f"*** Error: byte length not recognized or file: {image_file} ***")
-                return Pipeline.Skip
+                return Pipeline.Empty
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         pre_proc = [cv2.resize(image, (self.size, self.size)) / 255.0]
