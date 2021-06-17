@@ -31,26 +31,24 @@ class RedisCapture(Pipeline):
             for msg in self.pub.listen():
                 print(msg)
                 data = msg['data']
-                
+
                 if data == 1:
                     print("*** Connected to Redis Channel! ***")
                 else:
                     for image_path in images_from_dir(data):
                         self.image_queue.put(image_path)
 
-
     def __init__(self, redis):
         image_queue = Queue()
 
         # Used to complete overhead stemming from the first inference before Redis connection
-        image_queue.put(cfg.RED_INIT_IMG)
+        # image_queue.put(cfg.RED_INIT_IMG)
 
         self._worker = self._Worker(redis, image_queue)
 
         super().__init__(source=image_queue)
 
         self._worker.start()
-
 
     def is_working(self):
         """ Indicates if the pipeline should stop processing because 
@@ -68,7 +66,7 @@ class RedisCapture(Pipeline):
 
         if not self.image_ready():
             return Pipeline.Skip
-        
+
         image_file = self.source.get()
 
         print("Current File: " + image_file)
@@ -81,12 +79,12 @@ class RedisCapture(Pipeline):
                     np.fromfile(image_file, dtype=np.uint8), cfg.MTAUR_DIMENSIONS)
             except Exception as e:
                 print(f"Got Exception: {e}")
-                print(f"*** Error: byte length not recognized or file: {image_file} ***")
+                print(
+                    f"*** Error: byte length not recognized or file: {image_file} ***")
                 return Pipeline.Skip
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-        
         data = {
             "image_id": image_file,
             "image": image

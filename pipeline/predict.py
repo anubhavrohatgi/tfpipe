@@ -1,7 +1,8 @@
 import tensorflow as tf
 import numpy as np
-from cv2 import resize
+from cv2 import imread
 
+from core.config import cfg
 from pipeline.pipeline import Pipeline
 
 
@@ -10,6 +11,8 @@ class Predict(Pipeline):
 
     def __init__(self, args):
         self.size = args.size
+        self.iou_thresh = args.iou
+        self.score_thresh = args.score
 
         if args.framework == 'tflite':
             pass  # come back if we need tflite
@@ -33,13 +36,12 @@ class Predict(Pipeline):
         if data == Pipeline.Empty:
             return Pipeline.Skip
 
-        # with tf.device("/job:localhost/replica:0/task:0/device:GPU:1"):
-        image = [resize(data["image"], (self.size, self.size)) / 255.0]
-        image = np.asanyarray(image).astype(np.float32)
-        image = tf.constant(image)
+        predictions = self.predict(data["predictions"])
 
-        predictions = self.predict(image)
-        data["predictions"] = predictions
+        conf = predictions[:, :, 4:]
+
+        data["predictions"] = (tf.reshape(predictions[:, :, 0:4], (1, -1, 1, 4)),
+                               tf.reshape(conf, (1, -1, tf.shape(conf)[-1])))
 
     def cleanup(self):
         pass

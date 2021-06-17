@@ -33,26 +33,26 @@ class AsyncPredictor(Process):
             else:
                 model = tf.keras.models.load_model(self.weights)
                 predict = model.predict
-            print("Model Finished for Device: " + self.device)
+            # print("Model Finished for Device: " + self.device)
 
-            counter = 0
+            # counter = 0
             while True:
-                print(self.device)
+                # print(self.device)
                 data = self.task_queue.get()
                 if data == Pipeline.Exit:
                     break
 
-                image = [resize(data["image"], (self.size, self.size)) / 255.0]
-                image = np.asanyarray(image).astype(np.float32)
-                image = tf.constant(image)
+                predictions = predict(data["predictions"])
 
-                predictions = predict(image)
-                data["predictions"] = predictions
+                conf = predictions[:, :, 4:]
+
+                data["predictions"] = (tf.reshape(predictions[:, :, 0:4], (1, -1, 1, 4)),
+                                       tf.reshape(conf, (1, -1, tf.shape(conf)[-1])))
 
                 self.result_queue.put(data)
 
-                counter += 1
-                print(self.device, "done")
+                # counter += 1
+                # print(self.device, "done")
 
 
 class AsyncPredict(Pipeline):
@@ -71,10 +71,9 @@ class AsyncPredict(Pipeline):
         self.workers = list()
 
         # Create GPU Predictors
-        # range(num_gpus):
-        for gpu_id in ["/job:localhost/replica:0/task:0/device:GPU:0", "/job:localhost/replica:0/task:0/device:GPU:1"]:
+        for gpu_id in range(num_gpus):
             worker = AsyncPredictor(
-                args, f"{gpu_id}", self.task_queue, self.result_queue)
+                args, f"GPU:{gpu_id}", self.task_queue, self.result_queue)
             self.workers.append(worker)
 
         # Create CPU Predictors

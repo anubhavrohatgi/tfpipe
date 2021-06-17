@@ -88,7 +88,7 @@ def main(args):
     os.makedirs(args.output, exist_ok=True)
 
     # GPU Logging
-    tf.debugging.set_log_device_placement(True)
+    tf.debugging.set_log_device_placement(False)
     gpus = tf.config.list_physical_devices('GPU')
     for gpu in gpus:
         tf.config.experimental.set_memory_growth(gpu, True)
@@ -123,9 +123,9 @@ def main(args):
 
     # Create the image processing pipeline
     pipeline = (image_input
-                >> predict)
-    # >> annotate_image
-    # >> image_output)
+                >> predict
+                >> annotate_image
+                >> image_output)
 
     # Main Loop
     t = time()
@@ -136,9 +136,9 @@ def main(args):
             results.append(result)
 
             index += 1
-            print("Current Index: " + str(index))
+            # print("Current Index: " + str(index))
 
-        if not index:
+        if index == 1:
             t = time()
     print(f"Runtime: {time() - t} s")
 

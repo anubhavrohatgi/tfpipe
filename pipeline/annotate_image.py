@@ -24,17 +24,7 @@ class AnnotateImage(Pipeline):
         return data
 
     def annotate_predictions(self, data):
-        if "predictions" not in data:
-            return
-
-        predictions = data["predictions"]
-
-        boxes = predictions[:, :, 0:4]
-        conf = predictions[:, :, 4:]
-
-        boxes = tf.reshape(boxes, (boxes.shape[0], -1, 1, 4))
-        scores = tf.reshape(
-            conf, (boxes.shape[0], -1, tf.shape(conf)[-1]))
+        boxes, scores = data["predictions"]
 
         boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
             boxes,
@@ -45,16 +35,16 @@ class AnnotateImage(Pipeline):
             score_threshold=self.score_thresh
         )
 
-        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(), valid_detections.numpy()]
+        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(),
+                     valid_detections.numpy()]
 
         # Metadata
         if self.meta:
             metadata = get_meta(data["image"].shape, pred_bbox, self.classes)
             data["meta"] = metadata
 
-        annotated_image = draw_bbox(data["image"].copy(), pred_bbox, self.classes)
+        annotated_image = draw_bbox(
+            data["image"].copy(), pred_bbox, self.classes)
         annotated_image = Image.fromarray(annotated_image.astype(np.uint8))
 
         data[self.dst] = annotated_image
-
-        
