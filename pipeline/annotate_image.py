@@ -2,8 +2,8 @@ import tensorflow as tf
 import numpy as np
 from PIL import Image
 
-from pipeline.pipeline import Pipeline
-from core.utils import read_class_names, draw_bbox, get_meta
+from tfpipe.pipeline.pipeline import Pipeline
+from tfpipe.core.utils import read_class_names, draw_bbox, get_meta
 
 
 class AnnotateImage(Pipeline):
