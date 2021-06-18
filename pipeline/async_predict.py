@@ -1,8 +1,8 @@
 import tensorflow as tf
 from multiprocessing import Process, Queue, Value
 
-from core.utils import get_devices, get_init_img, build_predictor
-from pipeline.pipeline import Pipeline
+from tfpipe.core.utils import get_devices, get_init_img, build_predictor
+from tfpipe.pipeline.pipeline import Pipeline
 
 from time import time
 

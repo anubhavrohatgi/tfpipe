@@ -17,7 +17,7 @@ __C.VALID_EXTS = [".jpg", ".png", ".json", ""]
 # Redis parameters
 __C.REDIS_HOST = "127.0.0.1"
 __C.REDIS_PORT = 6379
-__C.INIT_IMG = "data/init.jpg"
+__C.INIT_IMG = "tfpipe/assets/init.jpg"
 
 # YOLO options
 __C.YOLO = edict()

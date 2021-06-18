@@ -1,5 +1,5 @@
-from core.utils import get_init_img, build_predictor
-from pipeline.pipeline import Pipeline
+from tfpipe.core.utils import get_init_img, build_predictor
+from tfpipe.pipeline.pipeline import Pipeline
 
 
 class Predict(Pipeline):

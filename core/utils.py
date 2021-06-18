@@ -4,7 +4,7 @@ import random
 import colorsys
 import numpy as np
 import tensorflow as tf
-from core.config import cfg
+from tfpipe.core.config import cfg
 from ujson import load
 
 

@@ -1,9 +1,7 @@
 import tensorflow as tf
-import numpy as np
-from PIL import Image
 
-from pipeline.pipeline import Pipeline
-from core.utils import read_class_names, convert_redis
+from tfpipe.pipeline.pipeline import Pipeline
+from tfpipe.core.utils import read_class_names, convert_redis
 
 
 class RedisAnnotate(Pipeline):

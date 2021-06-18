@@ -1,8 +1,7 @@
 import os
 import cv2
-from numpy import array
 
-from pipeline.pipeline import Pipeline
+from tfpipe.pipeline.pipeline import Pipeline
 
 
 class ImageOutput(Pipeline):

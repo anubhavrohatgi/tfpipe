@@ -3,9 +3,9 @@ import numpy as np
 from tensorflow import constant
 from collections import deque
 
-from core.config import cfg
-from core.utils import images_from_dir
-from pipeline.pipeline import Pipeline
+from tfpipe.core.config import cfg
+from tfpipe.core.utils import images_from_dir
+from tfpipe.pipeline.pipeline import Pipeline
 
 
 class ImageInput(Pipeline):

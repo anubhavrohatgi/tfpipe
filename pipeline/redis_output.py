@@ -1,5 +1,5 @@
 
-from pipeline.pipeline import Pipeline
+from tfpipe.pipeline.pipeline import Pipeline
 
 
 class RedisOutput(Pipeline):
