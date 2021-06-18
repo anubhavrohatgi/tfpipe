@@ -48,7 +48,7 @@ def read_class_names(class_file_name):
     return names
 
 
-def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_label=True):
+def draw_bbox(image, bboxes, classes, show_label=True):
     num_classes = len(classes)
     image_h, image_w, _ = image.shape
     hsv_tuples = [(1.0 * i / num_classes, 1., 1.) for i in range(num_classes)]
