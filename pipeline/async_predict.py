@@ -1,9 +1,7 @@
-import cv2
 import tensorflow as tf
-import numpy as np
 from multiprocessing import Process, Queue, Value
 
-from core.config import cfg
+from core.utils import get_devices, get_init_img, build_predictor
 from pipeline.pipeline import Pipeline
 
 from time import time
@@ -31,22 +29,14 @@ class AsyncPredictor(Process):
 
             # Create the model and prediction function
             print("Building Model for Device: " + self.device)
-            if self.framework == 'tflite':
-                pass  # come back if we need tflite
-            else:
-                model = tf.keras.models.load_model(self.weights)
-                predict = model.predict
+            predict = build_predictor(self.framework, self.weights, self.size)
 
             print("Inferencing Test Image: " + self.device)
-            image = cv2.cvtColor(cv2.imread(cfg.INIT_IMG), cv2.COLOR_BGR2RGB)
-            image = [cv2.resize(image, (self.size, self.size)) / 255.0]
-            image = np.asanyarray(image).astype(np.float32)
-            predict(tf.constant(image))
+            predict(get_init_img(self.size))
 
             # Set ready flag
             self.ready.value = 1
             print("Ready: " + self.device)
-            # counter = 0
             while True:
                 # print(self.device)
                 data = self.task_queue.get()
@@ -54,16 +44,11 @@ class AsyncPredictor(Process):
                     break
 
                 t = time()
-                predictions = predict(data["predictions"])
-                print(f"Device: {self.device} | Time: {time() - t} s")
-                conf = predictions[:, :, 4:]
-
-                data["predictions"] = (tf.reshape(predictions[:, :, 0:4], (1, -1, 1, 4)),
-                                       tf.reshape(conf, (1, -1, tf.shape(conf)[-1])))
+                data["predictions"] = predict(data["predictions"])
+                # print(f"Device: {self.device} | Time: {time() - t} s")
 
                 self.result_queue.put(data)
 
-                # counter += 1
                 # print(self.device, "done")
 
 
@@ -71,8 +56,9 @@ class AsyncPredict(Pipeline):
     """ The pipeline task for multi-process predicting. """
 
     def __init__(self, args):
-        num_gpus = min(len(tf.config.list_physical_devices('GPU')), args.gpus)
-        num_cpus = min(len(tf.config.list_physical_devices('CPU')), args.cpus)
+        gpus, cpus = get_devices()
+        num_gpus = min(len(gpus), args.gpus)
+        num_cpus = min(len(cpus), args.cpus)
         assert num_gpus > 0 or num_cpus > 0, "Must specify number of gpus or cpus"
 
         # Number of inputs and outputs

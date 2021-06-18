@@ -3,13 +3,16 @@ import cv2
 import random
 import colorsys
 import numpy as np
+import tensorflow as tf
 from core.config import cfg
 from ujson import load
 
+
 def valid_extension(path):
     """ Returns True if `path` has a valid extension for an image. """
-    
+
     return os.path.splitext(path)[-1] in cfg.VALID_EXTS
+
 
 def images_from_file(path: str, root: str = ""):
     """ Returns list of image paths from a file path. """
@@ -18,8 +21,9 @@ def images_from_file(path: str, root: str = ""):
         images = load(open(os.path.join(root, path), 'r'))
     else:
         images = [os.path.join(root, path)] if valid_extension(path) else []
-    
+
     return images
+
 
 def images_from_dir(path: str):
     """ Returns a list of paths to valid images. """
@@ -34,6 +38,7 @@ def images_from_dir(path: str):
         images = images_from_file(path)
 
     return images
+
 
 def read_class_names(class_file_name):
     names = {}
@@ -66,7 +71,6 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
         coor[2] = coor[2] * image_h
         coor[1] = coor[1] * image_w
         coor[3] = coor[3] * image_w
-        
 
         score = out_scores[i]
         bbox_color = colors[class_ind]
@@ -84,7 +88,7 @@ def draw_bbox(image, bboxes, classes=read_class_names(cfg.YOLO.CLASSES), show_la
 
             cv2.putText(image, bbox_mess, (c1[0], c1[1] - 2), cv2.FONT_HERSHEY_SIMPLEX,
                         cfg.FONTSCALE, (0, 0, 0), bbox_thick // 2, lineType=cv2.LINE_AA)
-                        
+
     return image
 
 
@@ -101,7 +105,7 @@ def get_meta(shape, bboxes, classes):
         class_ind = int(out_classes[i])
         if class_ind < 0 or class_ind > num_classes:
             continue
-        
+
         coor = out_boxes[i]
         x1 = coor[1] * image_w
         x2 = coor[3] * image_w
@@ -110,10 +114,12 @@ def get_meta(shape, bboxes, classes):
 
         score = out_scores[i]
 
-        d = {"id": class_ind, "score": float(score), "x": x1, "y": y1, "w": x2 - x1, "h": y2 - y1}
+        d = {"id": class_ind, "score": float(
+            score), "x": x1, "y": y1, "w": x2 - x1, "h": y2 - y1}
         metadata.append(d)
-    
+
     return metadata
+
 
 def convert_redis(file_path, shape, num_classes, bboxes):
     """ Converts predictions to the Redis output format. """
@@ -128,7 +134,7 @@ def convert_redis(file_path, shape, num_classes, bboxes):
         class_ind = int(out_classes[i])
         if class_ind < 0 or class_ind > num_classes:
             continue
-        
+
         coor = out_boxes[i]
         x1 = coor[1] * image_w
         x2 = coor[3] * image_w
@@ -138,5 +144,45 @@ def convert_redis(file_path, shape, num_classes, bboxes):
         score = out_scores[i]
 
         output += f"{file_path},{class_ind},{x1},{y1},{x2},{y2},{score},"
-    
+
     return output
+
+
+def get_devices():
+    """ Returns the GPUs and CPUs for the machine. """
+
+    return (tf.config.list_physical_devices('GPU'),
+            tf.config.list_physical_devices('CPU'))
+
+
+def get_init_img(size):
+    """ Returns `cfg.INIT_IMG` as a Tensor. """
+
+    image = cv2.cvtColor(cv2.imread(cfg.INIT_IMG), cv2.COLOR_BGR2RGB)
+    image = [cv2.resize(image, (size, size)) / 255.0]
+    image = np.asanyarray(image).astype(np.float32)
+
+    return tf.constant(image)
+
+
+def build_predictor(framework, weights, size):
+    """ Returns function used to make predictions. """
+
+    if framework == 'tf':
+        model = tf.keras.models.load_model(weights, compile=False)
+        spec = (tf.TensorSpec((1, size, size, 3), dtype=tf.dtypes.float32),)
+
+        @tf.function(input_signature=spec)
+        def predict(data):
+            predictions = model(data)
+            conf = predictions[:, :, 4:]
+
+            return (tf.reshape(predictions[:, :, 0:4], (1, -1, 1, 4)),
+                    tf.reshape(conf, (1, -1, tf.shape(conf)[-1])))
+
+    elif framework == 'tflite':
+        pass
+    else:
+        assert False, f"Invalid Framework: {framework}"
+
+    return predict
