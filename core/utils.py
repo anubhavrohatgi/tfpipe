@@ -165,6 +165,19 @@ def get_init_img(size):
     return tf.constant(image)
 
 
+# def resize_with_scale_and_translate(method):
+#     scale = (
+#         math_ops.cast(new_size, dtype=dtypes.float32) /
+#         math_ops.cast(array_ops.shape(images_t)[1:3], dtype=dtypes.float32))
+#     return gen_image_ops.scale_and_translate(
+#         images_t,
+#         new_size,
+#         scale,
+#         array_ops.zeros([2]),
+#         kernel_type=method,
+#         antialias=antialias)
+
+
 def build_predictor(framework, weights, size):
     """ Returns function used to make predictions. """
 
@@ -172,13 +185,20 @@ def build_predictor(framework, weights, size):
         model = tf.keras.models.load_model(weights, compile=False)
         spec = (tf.TensorSpec((1, size, size, 3), dtype=tf.dtypes.float32),)
 
-        @tf.function(input_signature=spec)
+        @tf.function(input_signature=spec, jit_compile=True)
         def predict(data):
-            predictions = model(data)
-            conf = predictions[:, :, 4:]
+            boxes, conf = model(data)
 
-            return (tf.reshape(predictions[:, :, 0:4], (1, -1, 1, 4)),
-                    tf.reshape(conf, (1, -1, tf.shape(conf)[-1])))
+            # boxes = tf.reshape(boxes, (1, -1, 1, 4))
+            # conf = tf.reshape(conf, (1, -1, tf.shape(conf)[-1]))
+
+            return boxes, conf
+            # predictions = model(data)
+            # print(predictions)
+            # conf = predictions[:, :, 4:]
+
+            # return (tf.reshape(predictions[:, :, 0:4], (1, -1, 1, 4)),
+            #         tf.reshape(conf, (1, -1, tf.shape(conf)[-1])))
 
     elif framework == 'tflite':
         pass

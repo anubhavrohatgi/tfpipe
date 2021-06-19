@@ -37,3 +37,7 @@ To submit images to the processing queue, open your `redis-cli` and publish a fi
 To read the output of the model, have a seperate `redis-cli` subscribe to the `bbox` channel:
 
     $ subscribe bbox
+
+## For JIT
+
+put libdevice.10.bc in dir
