@@ -165,17 +165,71 @@ def get_init_img(size):
     return tf.constant(image)
 
 
-# def resize_with_scale_and_translate(method):
-#     scale = (
-#         math_ops.cast(new_size, dtype=dtypes.float32) /
-#         math_ops.cast(array_ops.shape(images_t)[1:3], dtype=dtypes.float32))
-#     return gen_image_ops.scale_and_translate(
-#         images_t,
-#         new_size,
-#         scale,
-#         array_ops.zeros([2]),
-#         kernel_type=method,
-#         antialias=antialias)
+def filter_boxes(box_xywh, scores, input_shape, score_threshold=0.4):
+    scores_max = tf.math.reduce_max(scores, axis=-1)
+
+    mask = scores_max >= score_threshold
+    print(box_xywh)
+    class_boxes = tf.boolean_mask(box_xywh, mask)
+    # print(class_boxes)
+    pred_conf = tf.boolean_mask(scores, mask)
+    class_boxes = tf.reshape(class_boxes, [tf.shape(
+        scores)[0], -1, tf.shape(class_boxes)[-1]])
+    pred_conf = tf.reshape(pred_conf, [tf.shape(
+        scores)[0], -1, tf.shape(pred_conf)[-1]])
+
+    box_xy, box_wh = tf.split(class_boxes, (2, 2), axis=-1)
+
+    input_shape = tf.cast(input_shape, dtype=tf.float32)
+
+    box_yx = box_xy[..., ::-1]
+    box_hw = box_wh[..., ::-1]
+
+    box_mins = (box_yx - (box_hw / 2.)) / input_shape
+    box_maxes = (box_yx + (box_hw / 2.)) / input_shape
+    boxes = tf.concat([
+        box_mins[..., 0:1],  # y_min
+        box_mins[..., 1:2],  # x_min
+        box_maxes[..., 0:1],  # y_max
+        box_maxes[..., 1:2]  # x_max
+    ], axis=-1)
+    # return tf.concat([boxes, pred_conf], axis=-1)
+    return (boxes, pred_conf)
+
+
+def fbox(box_xywh, scores, input_shape, score_threshold=0.4):
+    scores_max = tf.math.reduce_max(scores, axis=-1)
+
+    mask = scores_max >= score_threshold
+
+    # class_boxes = boolean_mask(box_xywh, mask)
+    class_boxes = box_xywh
+    # pred_conf = boolean_mask(scores, mask)
+    pred_conf = scores
+    class_boxes = tf.reshape(class_boxes, [tf.shape(
+        scores)[0], -1, tf.shape(class_boxes)[-1]])
+    pred_conf = tf.reshape(pred_conf, [tf.shape(
+        scores)[0], -1, tf.shape(pred_conf)[-1]])
+
+    box_xy, box_wh = tf.split(class_boxes, (2, 2), axis=-1)
+
+    input_shape = tf.cast(input_shape, dtype=tf.float32)
+
+    box_yx = box_xy[..., ::-1]
+    box_hw = box_wh[..., ::-1]
+
+    box_mins = (box_yx - (box_hw / 2.)) / input_shape
+    box_maxes = (box_yx + (box_hw / 2.)) / input_shape
+    boxes = tf.concat([
+        box_mins[..., 0:1],  # y_min
+        box_mins[..., 1:2],  # x_min
+        box_maxes[..., 0:1],  # y_max
+        box_maxes[..., 1:2]  # x_max
+    ], axis=-1)
+    # boxes = boolean_mask(boxes, mask)
+    # pred_conf = boolean_mask(pred_conf, mask)
+    # return tf.concat([boxes, pred_conf], axis=-1)
+    return (mask, boxes, pred_conf)
 
 
 def build_predictor(framework, weights, size):
@@ -189,10 +243,11 @@ def build_predictor(framework, weights, size):
         def predict(data):
             boxes, conf = model(data)
 
+            mask, boxes, conf = fbox(boxes, conf, tf.constant([size, size]))
             # boxes = tf.reshape(boxes, (1, -1, 1, 4))
             # conf = tf.reshape(conf, (1, -1, tf.shape(conf)[-1]))
-
-            return boxes, conf
+            # boxes, scores = filter_boxes(boxes, scores, tf.constant([416, 416]))
+            return mask, boxes, conf
             # predictions = model(data)
             # print(predictions)
             # conf = predictions[:, :, 4:]
