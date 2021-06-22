@@ -31,32 +31,33 @@ class AnnotateImage(Pipeline):
         # filter
         # boxes, scores = filter_boxes(boxes, scores, tf.constant([416, 416]))
         # mask, boxes, scores = fbox(boxes, scores, tf.constant([416, 416]))
-        boxes = tf.boolean_mask(boxes, mask)
-        scores = tf.boolean_mask(scores, mask)
+        with tf.device("CPU:0"):
+            boxes = tf.boolean_mask(boxes, mask)
+            scores = tf.boolean_mask(scores, mask)
 
-        boxes = tf.reshape(boxes, (1, -1, 1, 4))
-        scores = tf.reshape(scores, (1, -1, tf.shape(scores)[-1]))
-        ####
+            boxes = tf.reshape(boxes, (1, -1, 1, 4))
+            scores = tf.reshape(scores, (1, -1, tf.shape(scores)[-1]))
+            ####
 
-        boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
-            boxes,
-            scores,
-            max_output_size_per_class=50,
-            max_total_size=50,
-            iou_threshold=self.iou_thresh,
-            score_threshold=self.score_thresh
-        )
+            boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
+                boxes,
+                scores,
+                max_output_size_per_class=50,
+                max_total_size=50,
+                iou_threshold=self.iou_thresh,
+                score_threshold=self.score_thresh
+            )
 
-        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(),
-                     valid_detections.numpy()]
+            pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(),
+                         valid_detections.numpy()]
 
-        # Metadata
-        if self.meta:
-            metadata = get_meta(
-                data["image"].shape, pred_bbox, self.classes)
-            data["meta"] = metadata
+            # Metadata
+            if self.meta:
+                metadata = get_meta(
+                    data["image"].shape, pred_bbox, self.classes)
+                data["meta"] = metadata
 
-        annotated_image = draw_bbox(
-            data["image"].copy(), pred_bbox, self.classes)
+            annotated_image = draw_bbox(
+                data["image"].copy(), pred_bbox, self.classes)
 
-        data[self.dst] = annotated_image
+            data[self.dst] = annotated_image

@@ -38,7 +38,6 @@ class AsyncPredictor(Process):
             self.ready.value = 1
             print("Ready: " + self.device)
             while True:
-                # print(self.device)
                 data = self.task_queue.get()
                 if data == Pipeline.Exit:
                     break

@@ -7,6 +7,8 @@ import tensorflow as tf
 from tfpipe.core.config import cfg
 from ujson import load
 
+##### GENERAL #####
+
 
 def valid_extension(path):
     """ Returns True if `path` has a valid extension for an image. """
@@ -46,6 +48,91 @@ def read_class_names(class_file_name):
         for ID, name in enumerate(data):
             names[ID] = name.strip('\n')
     return names
+
+###################
+
+##### TRAINING #####
+
+
+def get_anchors(anchors, tiny=False):
+    anchors = np.array(anchors)
+    if tiny:
+        return anchors.reshape(2, 3, 2)
+    else:
+        return anchors.reshape(3, 3, 2)
+
+
+def load_config(classes, model, is_tiny):
+    if is_tiny:
+        pass
+    else:
+        STRIDES = np.array(cfg.YOLO.STRIDES)
+        if model == 'yolov4':
+            ANCHORS = get_anchors(cfg.YOLO.ANCHORS, is_tiny)
+
+        XYSCALE = cfg.YOLO.XYSCALE if model == 'yolov4' else [1, 1, 1]
+    NUM_CLASS = len(read_class_names(classes))
+
+    return STRIDES, ANCHORS, NUM_CLASS, XYSCALE
+
+
+def load_weights(model, weights_file, model_name='yolov4', is_tiny=False):
+    if is_tiny:
+        if model_name == 'yolov3':
+            layer_size = 13
+            output_pos = [9, 12]
+        else:
+            layer_size = 21
+            output_pos = [17, 20]
+    else:
+        if model_name == 'yolov3':
+            layer_size = 75
+            output_pos = [58, 66, 74]
+        else:
+            layer_size = 110
+            output_pos = [93, 101, 109]
+    wf = open(weights_file, 'rb')
+    major, minor, revision, seen, _ = np.fromfile(wf, dtype=np.int32, count=5)
+
+    j = 0
+    for i in range(layer_size):
+        conv_layer_name = 'conv2d_%d' % i if i > 0 else 'conv2d'
+        bn_layer_name = 'batch_normalization_%d' % j if j > 0 else 'batch_normalization'
+        conv_layer = model.get_layer(conv_layer_name)
+        filters = conv_layer.filters
+        k_size = conv_layer.kernel_size[0]
+        in_dim = conv_layer.input_shape[-1]
+
+        if i not in output_pos:
+            # darknet weights: [beta, gamma, mean, variance]
+            bn_weights = np.fromfile(wf, dtype=np.float32, count=4 * filters)
+            # tf weights: [gamma, beta, mean, variance]
+            bn_weights = bn_weights.reshape((4, filters))[[1, 0, 2, 3]]
+            bn_layer = model.get_layer(bn_layer_name)
+            j += 1
+        else:
+            conv_bias = np.fromfile(wf, dtype=np.float32, count=filters)
+
+        # darknet shape (out_dim, in_dim, height, width)
+        conv_shape = (filters, in_dim, k_size, k_size)
+        conv_weights = np.fromfile(
+            wf, dtype=np.float32, count=np.product(conv_shape))
+        # tf shape (height, width, in_dim, out_dim)
+        conv_weights = conv_weights.reshape(conv_shape).transpose([2, 3, 1, 0])
+
+        if i not in output_pos:
+            conv_layer.set_weights([conv_weights])
+            bn_layer.set_weights(bn_weights)
+        else:
+            conv_layer.set_weights([conv_weights, conv_bias])
+
+    # assert len(wf.read()) == 0, 'failed to read all data'
+    wf.close()
+
+####################
+
+
+##### EVALUATION #####
 
 
 def draw_bbox(image, bboxes, classes, show_label=True):
@@ -261,3 +348,5 @@ def build_predictor(framework, weights, size):
         assert False, f"Invalid Framework: {framework}"
 
     return predict
+
+######################

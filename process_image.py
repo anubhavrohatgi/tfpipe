@@ -4,27 +4,23 @@ import tensorflow as tf
 from redis import Redis
 from multiprocessing import set_start_method
 
-from core.config import cfg
+import config as cfg
 
-from pipeline.pipeline import Pipeline
-from pipeline.image_input import ImageInput
-from pipeline.async_predict import AsyncPredict
-from pipeline.predict import Predict
-from pipeline.annotate_image import AnnotateImage
-from pipeline.image_output import ImageOutput
+from tfpipe.pipeline.pipeline import Pipeline
+from tfpipe.pipeline.image_input import ImageInput
+from tfpipe.pipeline.async_predict import AsyncPredict
+from tfpipe.pipeline.predict import Predict
+from tfpipe.pipeline.annotate_image import AnnotateImage
+from tfpipe.pipeline.image_output import ImageOutput
 
 # Redis
-from pipeline.redis_capture import RedisCapture
-from pipeline.redis_annotate import RedisAnnotate
-from pipeline.redis_output import RedisOutput
+from tfpipe.pipeline.redis_capture import RedisCapture
+from tfpipe.pipeline.redis_annotate import RedisAnnotate
+from tfpipe.pipeline.redis_output import RedisOutput
 
 from time import time
 
 # TODO
-# convert to python 3.6.5
-# update readme for redis
-# redis smb://dom1.jhuapl.edu/dept/AOS/AOSshare/PM-266_Killer_Applications/
-# readme here smb://dom1.jhuapl.edu/dept/AOS/AOSshare/PM-266_Killer_Applications/Integration/1015_Alion
 
 
 def parse_args():
@@ -35,21 +31,23 @@ def parse_args():
     # Parse command line arguments
     ap = argparse.ArgumentParser(
         description="TensorFlow YOLOv4 Image Processing Pipeline")
-    ap.add_argument("-i", "--input", default="data/images.json",
+    ap.add_argument("-i", "--input", default=cfg.MODEL.INPUT,
                     help="path to the input image/directory or list of file paths stored in a json file")
-    ap.add_argument("-w", "--weights", default="checkpoints/yolov4-672",
+    ap.add_argument("-w", "--weights", default=cfg.MODEL.WEIGHTS,
                     help="path to weights file")
-    ap.add_argument("-s", "--size", type=int, default=672,
+    ap.add_argument("-s", "--size", type=int, default=cfg.MODEL.IMAGE_SIZE,
                     help="the value to which the images will be resized")
 
     # Model Settings
-    ap.add_argument("-f", "--framework", default="tf",
+    ap.add_argument("-f", "--framework", default=cfg.MODEL.FRAMEWORK,
                     help="the framework of the model")
     ap.add_argument("--tiny", action="store_true",
                     help="use yolo-tiny instead of yolo")
-    ap.add_argument("--iou", default=0.45, help="iou threshold")
-    ap.add_argument("--score", default=0.25, help="score threshold")
-    ap.add_argument("--classes", default=cfg.YOLO.CLASSES,
+    ap.add_argument("--iou", default=cfg.MODEL.IOU_THRESH,
+                    help="iou threshold")
+    ap.add_argument("--score", default=cfg.MODEL.SCORE_THRESH,
+                    help="score threshold")
+    ap.add_argument("--classes", default=cfg.MODEL.CLASSES,
                     help="file path to classes")
 
     # Output Settings
@@ -65,9 +63,9 @@ def parse_args():
     # Redis Settings
     ap.add_argument("-r", "--redis", action="store_true",
                     help="signal to use redis capture")
-    ap.add_argument("-rh", "--redis-host", default=cfg.REDIS_HOST,
+    ap.add_argument("-rh", "--redis-host", default=cfg.REDIS.REDIS_HOST,
                     help="the host name for redis")
-    ap.add_argument("-rp", "--redis-port", default=cfg.REDIS_PORT,
+    ap.add_argument("-rp", "--redis-port", default=cfg.REDIS.REDIS_PORT,
                     help="the port for redis")
 
     # Mutliprocessing Settings
@@ -83,6 +81,10 @@ def parse_args():
 
 def main(args):
     """ The main function for image processing. """
+
+    import pickle  # temp
+    with open('args.pkl', 'wb') as f:
+        pickle.dump(args, f)
 
     # Create output directory if needed
     os.makedirs(args.output, exist_ok=True)
