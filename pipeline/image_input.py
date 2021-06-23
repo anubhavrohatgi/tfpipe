@@ -59,14 +59,14 @@ class ImageInput(Pipeline):
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
         pre_proc = [cv2.resize(image, (self.size, self.size)) / 255.0]
 
-        if self.meta:
-            image = pre_proc[0]
+        # if self.meta:
+        #     image = pre_proc[0]
 
         pre_proc = constant(np.asanyarray(pre_proc).astype(np.float32))
 
         data = {
-            "image_id": image_file,
-            "id": image_id,
+            "image_path": image_file,
+            "image_id": image_id,
             "image": image,
             "predictions": pre_proc
         }

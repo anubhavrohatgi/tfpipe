@@ -25,12 +25,15 @@ class ImageOutput(Pipeline):
 
     def map(self, data):
 
-        self.export_img(data["image_id"], data[self.dst], data)
+        self.export_img(data)
 
         return data
 
-    def export_img(self, image_id, image, data):
+    def export_img(self, data):
         """ Saves image to a file. Also displays the image if self.show is True. """
+
+        image_id = data["image_path"]
+        image = data[self.dst]
 
         image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 

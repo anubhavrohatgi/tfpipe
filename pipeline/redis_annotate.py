@@ -36,6 +36,6 @@ class RedisAnnotate(Pipeline):
                      valid_detections.numpy()]
 
         annotated_output = convert_redis(
-            data["image_id"], data["image"].shape, self.num_classes, pred_bbox)
+            data["image_path"], data["image"].shape, self.num_classes, pred_bbox)
 
         data[self.dst] = annotated_output

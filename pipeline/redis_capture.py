@@ -89,7 +89,7 @@ class RedisCapture(Pipeline):
         pre_proc = constant(np.asanyarray(pre_proc).astype(np.float32))
 
         data = {
-            "image_id": image_file,
+            "image_path": image_file,
             "image": image,
             "predictions": pre_proc
         }
