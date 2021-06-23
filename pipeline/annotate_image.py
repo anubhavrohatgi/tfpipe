@@ -54,7 +54,7 @@ class AnnotateImage(Pipeline):
             # Metadata
             if self.meta:
                 metadata = get_meta(
-                    data["image"].shape, pred_bbox, self.classes)
+                    data["image"].shape, data["id"], pred_bbox, self.classes)
                 data["meta"] = metadata
 
             annotated_image = draw_bbox(

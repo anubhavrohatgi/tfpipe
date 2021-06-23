@@ -11,7 +11,6 @@ from tfpipe.core.libs.tensorflow import resize  # <-- needed for namespace
 
 ##### GENERAL #####
 
-
 def valid_extension(path):
     """ Returns True if `path` has a valid extension for an image. """
 
@@ -181,7 +180,7 @@ def draw_bbox(image, bboxes, classes, show_label=True):
     return image
 
 
-def get_meta(shape, bboxes, classes):
+def get_meta(shape, image_id, bboxes, classes):
     """ Returns the dection metadata as a list of dictionary entries. """
 
     num_classes = len(classes)
@@ -201,10 +200,16 @@ def get_meta(shape, bboxes, classes):
         y1 = coor[0] * image_h
         y2 = coor[2] * image_h
 
+        w = x2 - x1
+        h = y2 - y1
+
         score = out_scores[i]
 
-        d = {"id": class_ind, "score": float(
-            score), "x": x1, "y": y1, "w": x2 - x1, "h": y2 - y1}
+        d = {"image_id": image_id, "category_id": class_ind, "bbox": [
+            x1, y1, w, h], "score": float(score)}
+
+        # d = {"id": class_ind, "score": float(
+        #     score), "x": x1, "y": y1, "w": x2 - x1, "h": y2 - y1}
         metadata.append(d)
 
     return metadata

@@ -38,6 +38,9 @@ class ImageInput(Pipeline):
             return Pipeline.Empty
 
         image_file = self.images.popleft()
+        image_id = 0
+        if isinstance(image_file, tuple):
+            image_file, image_id = image_file
 
         # print("Current File: " + image_file)
 
@@ -63,6 +66,7 @@ class ImageInput(Pipeline):
 
         data = {
             "image_id": image_file,
+            "id": image_id,
             "image": image,
             "predictions": pre_proc
         }
