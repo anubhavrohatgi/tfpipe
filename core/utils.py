@@ -7,6 +7,8 @@ import tensorflow as tf
 from tfpipe.core.config import cfg
 from ujson import load
 
+from tfpipe.core.libs.tensorflow import resize  # <-- needed for namespace
+
 ##### GENERAL #####
 
 

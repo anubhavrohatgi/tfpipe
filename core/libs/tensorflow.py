@@ -1,23 +1,25 @@
 
+import tensorflow
 from tensorflow.image import ResizeMethod
 from tensorflow import dtypes
 from tensorflow.python.ops import math_ops, array_ops, gen_image_ops
 from tensorflow.python.ops.image_ops_impl import _resize_images_common
+from tensorflow.python.util import dispatch
+from tensorflow.python.util.tf_export import tf_export
 
 
+@tf_export('image.resize', v1=[])
+@dispatch.add_dispatch_support
 def resize(images,
            size,
            method=ResizeMethod.BILINEAR,
            preserve_aspect_ratio=False,
            antialias=False,
-           name=None,
+           name='resize2',
            half_pixel_centers=False):
-    """ Modified version of `resize_images_v2` from
-    tensorflow.python.ops.image_ops_impl. """
 
     def resize_fn(images_t, new_size):
         """Resize core function, passed to _resize_images_common."""
-
         scale_and_translate_methods = [
             ResizeMethod.LANCZOS3, ResizeMethod.LANCZOS5, ResizeMethod.GAUSSIAN,
             ResizeMethod.MITCHELLCUBIC
@@ -39,9 +41,9 @@ def resize(images,
             if antialias:
                 return resize_with_scale_and_translate('triangle')
             else:
-                print("half_pixel_centers: " + str(False))
+                print("half_pixel_centers: " + str(half_pixel_centers))
                 return gen_image_ops.resize_bilinear(
-                    images_t, new_size, half_pixel_centers=False)
+                    images_t, new_size, half_pixel_centers=half_pixel_centers)
         elif method == ResizeMethod.NEAREST_NEIGHBOR:
             return gen_image_ops.resize_nearest_neighbor(
                 images_t, new_size, half_pixel_centers=True)
