@@ -22,6 +22,9 @@ class Pipeline(object):
         else:
             return self
 
+    def __call__(self, data):
+        return self.map(data)
+
     def create_map(self, other_map):
         """ Returns a new map function that calls self.map and forward its return value to other_map. """
 
