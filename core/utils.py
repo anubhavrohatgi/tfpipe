@@ -8,6 +8,7 @@ from tfpipe.core.config import cfg
 from ujson import load
 
 from tfpipe.core.libs.tensorflow import resize  # <-- needed for namespace
+# think about overriding filterboxes
 
 ##### GENERAL #####
 
@@ -263,7 +264,7 @@ def filter_boxes(box_xywh, scores, input_shape, score_threshold=0.4):
     scores_max = tf.math.reduce_max(scores, axis=-1)
 
     mask = scores_max >= score_threshold
-    print(box_xywh)
+    # print(box_xywh)
     class_boxes = tf.boolean_mask(box_xywh, mask)
     # print(class_boxes)
     pred_conf = tf.boolean_mask(scores, mask)
@@ -338,16 +339,9 @@ def build_predictor(framework, weights, size):
             boxes, conf = model(data)
 
             mask, boxes, conf = fbox(boxes, conf, tf.constant([size, size]))
-            # boxes = tf.reshape(boxes, (1, -1, 1, 4))
-            # conf = tf.reshape(conf, (1, -1, tf.shape(conf)[-1]))
-            # boxes, scores = filter_boxes(boxes, scores, tf.constant([416, 416]))
-            return mask, boxes, conf
-            # predictions = model(data)
-            # print(predictions)
-            # conf = predictions[:, :, 4:]
 
-            # return (tf.reshape(predictions[:, :, 0:4], (1, -1, 1, 4)),
-            #         tf.reshape(conf, (1, -1, tf.shape(conf)[-1])))
+            return mask, boxes, conf
+
 
     elif framework == 'tflite':
         pass

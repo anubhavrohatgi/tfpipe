@@ -53,10 +53,6 @@ class ImageOutput(Pipeline):
             cv2.imshow(basename, image)
             cv2.waitKey(0)
 
-        # Metadata
-        # if self.meta:
-        #     data["meta"] = {"image": basename, "metadata": data["meta"]}
-
         if self.image_ext == ".jpg":
             cv2.imwrite(path, image,
                         (cv2.IMWRITE_JPEG_QUALITY, self.jpg_quality) if self.jpg_quality else None)

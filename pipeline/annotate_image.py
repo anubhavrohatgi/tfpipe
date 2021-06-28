@@ -24,19 +24,13 @@ class AnnotateImage(Pipeline):
     def annotate_predictions(self, data):
         mask, boxes, scores = data["predictions"]
 
-        # import pickle  # temp
-        # with open('test.pkl', 'wb') as f:
-        #     pickle.dump(data, f)
-
-        # filter
-        # boxes, scores = filter_boxes(boxes, scores, tf.constant([416, 416]))
-        # mask, boxes, scores = fbox(boxes, scores, tf.constant([416, 416]))
         with tf.device("CPU:0"):
             boxes = tf.boolean_mask(boxes, mask)
             scores = tf.boolean_mask(scores, mask)
 
             boxes = tf.reshape(boxes, (1, -1, 1, 4))
             scores = tf.reshape(scores, (1, -1, tf.shape(scores)[-1]))
+            
             ####
 
             boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
