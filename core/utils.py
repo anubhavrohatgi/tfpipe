@@ -6,6 +6,7 @@ import numpy as np
 import tensorflow as tf
 from tfpipe.core.config import cfg
 from ujson import load
+from redis import Redis
 
 from tfpipe.core.libs.tensorflow import resize  # <-- needed for namespace
 # think about overriding filterboxes
@@ -136,6 +137,14 @@ def load_weights(model, weights_file, model_name='yolov4', is_tiny=False):
 
 ##### EVALUATION #####
 
+def create_redis(host, port):
+    redis = Redis(host=host,
+                  port=port,
+                  db=0,
+                  charset='utf-8',
+                  decode_responses=True)
+    
+    return redis
 
 def draw_bbox(image, bboxes, classes, show_label=True):
     num_classes = len(classes)

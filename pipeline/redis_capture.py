@@ -1,10 +1,10 @@
 import cv2
 import numpy as np
 from tensorflow import constant
-from multiprocessing import Process, Queue
+from multiprocessing import Process, Queue, Value
 
 from tfpipe.core.config import cfg
-from tfpipe.core.utils import images_from_dir
+from tfpipe.core.utils import images_from_dir, create_redis
 from tfpipe.pipeline.pipeline import Pipeline
 
 
@@ -12,54 +12,86 @@ class RedisCapture(Pipeline):
     """ Pipeline task to capture images from Redis. """
 
     class _InputStream(Process):
-        def __init__(self, redis, image_queue):
-            self.pub = redis.pubsub()
-            self.image_queue = image_queue
+        def __init__(self, redis_info):
+            self.redis_info = redis_info
+            self.image_queue = Queue()
 
-            try:
-                self.pub.subscribe("frames")
-            except:
-                print("*** Failed to connect to Redis channel. Exiting... ***")
-                exit()
+            self.ready_val = Value('i', 0)
 
             super().__init__(daemon=True)
+
 
         def run(self):
             """ Polls the Redis stream and adds file paths to the image 
             queue when they are available. """
 
-            for msg in self.pub.listen():
-                print(msg)
-                data = msg['data']
+            host, port, ch_in = self.redis_info
+            redis = create_redis(host, port)
 
-                if data == 1:
-                    print("*** Connected to Redis Channel! ***")
-                else:
-                    for image_path in images_from_dir(data):
+            pub = redis.pubsub()
+            try:
+                pub.subscribe(ch_in)
+                self.ready_val.value = 1
+            except:
+                print("*** Failed to connect to Redis channel. Exiting... ***")
+                self.ready_val.value = -1
+            else:
+
+                for msg in pub.listen():
+                    print(f"Message Received: {msg}")
+                    data = msg['data']
+
+                    if data == 1:
+                        print("*** Connected to Redis Channel! ***")
+                        continue
+
+                    try: 
+                        images = images_from_dir(data)
+                    except FileNotFoundError:
+                        print(f"Got FileNotFoundError from data: {data}")
+                        images = list()
+
+                    for image_path in images:
                         self.image_queue.put(image_path)
 
-    def __init__(self, redis):
-        image_queue = Queue()
+        @property
+        def ready(self):
+            
+            return self.ready_val.value
 
-        # Used to complete overhead stemming from the first inference before Redis connection
-        # image_queue.put(cfg.RED_INIT_IMG)
+        def empty(self):
+        
+            return self.image_queue.empty()
 
-        self._worker = self._InputStream(redis, image_queue)
+        def get(self):
 
-        super().__init__(source=image_queue)
+            return self.image_queue.get()
+
+    def __init__(self, redis_info, size):
+
+        self._worker = self._InputStream(redis_info)
+        self.size = size
+
+        super().__init__()
 
         self._worker.start()
+
+        while not self._worker.ready:
+            pass
+
+        if self._worker.ready == -1:
+            raise Exception("Redis Connection Issue")
 
     def is_working(self):
         """ Indicates if the pipeline should stop processing because 
         the input stream has ended. """
 
-        return self._worker.is_alive() or not self.source.empty()
+        return self._worker.is_alive() or not self._worker.empty()
 
     def image_ready(self):
         """ Returns True if the next image is ready. """
 
-        return not self.source.empty()
+        return not self._worker.empty()
 
     def map(self, _=None):
         """ Returns the image content of the next image in the Redis stream. """
@@ -67,7 +99,7 @@ class RedisCapture(Pipeline):
         if not self.image_ready():
             return Pipeline.Empty
 
-        image_file = self.source.get()
+        image_file = self._worker.get()
 
         # print("Current File: " + image_file)
 
@@ -91,7 +123,8 @@ class RedisCapture(Pipeline):
         data = {
             "image_path": image_file,
             "image": image,
-            "predictions": pre_proc
+            "predictions": pre_proc,
+            "meta": None
         }
 
         return data
