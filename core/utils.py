@@ -6,8 +6,10 @@ import numpy as np
 import tensorflow as tf
 from tfpipe.core.config import cfg
 from ujson import load
+from redis import Redis
 
 from tfpipe.core.libs.tensorflow import resize  # <-- needed for namespace
+# think about overriding filterboxes
 
 ##### GENERAL #####
 
@@ -136,6 +138,14 @@ def load_weights(model, weights_file, model_name='yolov4', is_tiny=False):
 
 ##### EVALUATION #####
 
+def create_redis(host, port):
+    redis = Redis(host=host,
+                  port=port,
+                  db=0,
+                  charset='utf-8',
+                  decode_responses=True)
+    
+    return redis
 
 def draw_bbox(image, bboxes, classes, show_label=True):
     num_classes = len(classes)
@@ -264,7 +274,7 @@ def filter_boxes(box_xywh, scores, input_shape, score_threshold=0.4):
     scores_max = tf.math.reduce_max(scores, axis=-1)
 
     mask = scores_max >= score_threshold
-    print(box_xywh)
+    # print(box_xywh)
     class_boxes = tf.boolean_mask(box_xywh, mask)
     # print(class_boxes)
     pred_conf = tf.boolean_mask(scores, mask)
@@ -339,16 +349,9 @@ def build_predictor(framework, weights, size):
             boxes, conf = model(data)
 
             mask, boxes, conf = fbox(boxes, conf, tf.constant([size, size]))
-            # boxes = tf.reshape(boxes, (1, -1, 1, 4))
-            # conf = tf.reshape(conf, (1, -1, tf.shape(conf)[-1]))
-            # boxes, scores = filter_boxes(boxes, scores, tf.constant([416, 416]))
-            return mask, boxes, conf
-            # predictions = model(data)
-            # print(predictions)
-            # conf = predictions[:, :, 4:]
 
-            # return (tf.reshape(predictions[:, :, 0:4], (1, -1, 1, 4)),
-            #         tf.reshape(conf, (1, -1, tf.shape(conf)[-1])))
+            return mask, boxes, conf
+
 
     elif framework == 'tflite':
         pass

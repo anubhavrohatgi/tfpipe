@@ -46,7 +46,7 @@ def resize(images,
                     images_t, new_size, half_pixel_centers=half_pixel_centers)
         elif method == ResizeMethod.NEAREST_NEIGHBOR:
             return gen_image_ops.resize_nearest_neighbor(
-                images_t, new_size, half_pixel_centers=True)
+                images_t, new_size, half_pixel_centers=half_pixel_centers)
         elif method == ResizeMethod.BICUBIC:
             if antialias:
                 return resize_with_scale_and_translate('keyscubic')

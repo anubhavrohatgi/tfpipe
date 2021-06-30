@@ -21,21 +21,29 @@ class RedisAnnotate(Pipeline):
         return data
 
     def annotate_predictions(self, data):
-        boxes, scores = data["predictions"]
+        mask, boxes, scores = data["predictions"]
 
-        boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
-            boxes,
-            scores,
-            max_output_size_per_class=50,
-            max_total_size=50,
-            iou_threshold=self.iou_thresh,
-            score_threshold=self.score_thresh
-        )
+        with tf.device("CPU:0"):
+            boxes = tf.boolean_mask(boxes, mask)
+            scores = tf.boolean_mask(scores, mask)
 
-        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(),
-                     valid_detections.numpy()]
+            boxes = tf.reshape(boxes, (1, -1, 1, 4))
+            scores = tf.reshape(scores, (1, -1, tf.shape(scores)[-1]))
+            
+            ####
+            boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
+                boxes,
+                scores,
+                max_output_size_per_class=50,
+                max_total_size=50,
+                iou_threshold=self.iou_thresh,
+                score_threshold=self.score_thresh
+            )
 
-        annotated_output = convert_redis(
-            data["image_path"], data["image"].shape, self.num_classes, pred_bbox)
+            pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(),
+                        valid_detections.numpy()]
 
-        data[self.dst] = annotated_output
+            annotated_output = convert_redis(
+                data["image_path"], data["image"].shape, self.num_classes, pred_bbox)
+
+            data[self.dst] = annotated_output

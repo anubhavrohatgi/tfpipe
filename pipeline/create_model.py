@@ -2,7 +2,7 @@ import tensorflow as tf
 from tensorflow.python.eager.monitoring import BoolGaugeCell
 from tensorflow.python.util.deprecation import _PRINTED_WARNING
 
-from tfpipe.core.utils import load_config
+from tfpipe.core.utils import load_config, filter_boxes
 from tfpipe.core.yolo import YOLO, decode
 from tfpipe.pipeline.pipeline import Pipeline
 
@@ -65,6 +65,8 @@ class CreateModel(Pipeline):
         if self.framework == 'tflite':
             pred = (pred_bbox, pred_prob)
         else:
+            # boxes, pred_conf = filter_boxes(pred_bbox, pred_prob, score_threshold=0.2, input_shape=tf.constant([self.input_size, self.input_size]))
+            # pred = tf.concat([boxes, pred_conf], axis=-1)
             pred = (pred_bbox, pred_prob)
 
         return pred

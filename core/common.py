@@ -36,6 +36,7 @@ def residual_block(input_layer, input_channel, filter_num1, filter_num2, activat
 def upsample(input_layer):  # come back
     return resize(input_layer, (input_layer.shape[1] * 2, input_layer.shape[2] * 2), method='bilinear', half_pixel_centers=False)
     # return tf.image.resize(input_layer, (input_layer.shape[1] * 2, input_layer.shape[2] * 2), method='bilinear')
+    # return tf.image.resize(input_layer, (input_layer.shape[1] * 2, input_layer.shape[2] * 2), method='nearest')
 
 
 def convolutional(input_layer, filters_shape, downsample=False, activate=True, bn=True, activate_type='leaky'):
