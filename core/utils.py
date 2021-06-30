@@ -11,10 +11,11 @@ from tfpipe.core.libs.tensorflow import resize  # <-- needed for namespace
 
 ##### GENERAL #####
 
+
 def valid_extension(path):
     """ Returns True if `path` has a valid extension for an image. """
 
-    return os.path.splitext(path)[-1] in cfg.VALID_EXTS
+    return os.path.splitext(path)[-1].lower() in cfg.VALID_EXTS
 
 
 def images_from_file(path: str, root: str = ""):
