@@ -341,11 +341,14 @@ def fbox(box_xywh, scores, input_shape, score_threshold=0.4):
 def build_preproc(size):
     """ Returns function used to preprocess an image. """
 
+    spec = (tf.TensorSpec((size, size, 3), dtype=tf.dtypes.float32),)
+
+    @ tf.function(input_signature=spec, jit_compile=True)
     def preproc_img(image):
 
         # Convert from BGR to RGB
         pp = tf.reverse(image, [-1])
-        pp = tf.image.resize(pp, (size, size)) / 255.0
+        # pp = tf.image.resize(pp, (size, size)) / 255.0
 
         return tf.reshape(pp, (1, size, size, 3))
 
@@ -359,7 +362,7 @@ def build_predictor(framework, weights, size):
         model = tf.keras.models.load_model(weights, compile=False)
         spec = (tf.TensorSpec((1, size, size, 3), dtype=tf.dtypes.float32),)
 
-        @tf.function(input_signature=spec, jit_compile=True)
+        @ tf.function(input_signature=spec, jit_compile=True)
         def predict(data):
             boxes, conf = model(data)
 

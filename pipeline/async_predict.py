@@ -27,10 +27,10 @@ class AsyncPredictor(Process):
         print("starting")
         gpu = tf.config.list_physical_devices('GPU')[self.device]
         tf.config.experimental.set_memory_growth(gpu, True)
-        gpu_cfg = [tf.config.LogicalDeviceConfiguration(memory_limit=2000)]
+        gpu_cfg = [tf.config.LogicalDeviceConfiguration(memory_limit=3000)]
         tf.config.set_logical_device_configuration(gpu, gpu_cfg)
 
-        vgpu = tf.config.list_logical_devices('GPU')[self.device]
+        vgpu = tf.config.list_logical_devices('GPU')[0]
         print(vgpu)
 
         print("with")
@@ -79,19 +79,10 @@ class AsyncPredict(Pipeline):
         self.result_queue = Queue()
         self.workers = list()
 
-        # create as many as you want,
-        # doesn't matter what the name is because diff name space... maybe
-
         # Create GPU Predictors
         for gpu_id in range(num_gpus):
             worker = AsyncPredictor(
                 args, gpu_id, self.task_queue, self.result_queue)
-            self.workers.append(worker)
-
-        # Create CPU Predictors
-        for cpu_id in range(num_cpus):
-            worker = AsyncPredictor(
-                args, f"CPU:{cpu_id}", self.task_queue, self.result_queue)
             self.workers.append(worker)
 
         # Start the Jobs

@@ -22,6 +22,12 @@ class ImageInput(Pipeline):
 
         self.preprocess = build_preproc(size)
 
+        with tf.device("CPU:0"):
+            print("Preprocessing Test Image...")
+            test_image = cv2.imread(cfg.INIT_IMG)
+            pp = tf.image.resize(test_image, (self.size, self.size)) / 255.0
+            self.preprocess(pp)
+
         super().__init__()
 
     def is_working(self):
@@ -38,46 +44,38 @@ class ImageInput(Pipeline):
         """ Returns the image content of the next image in the input. """
 
         # print("im input")
-        # with tf.device("CPU:0"):
-        if not self.image_ready() or not self.is_working():
-            return Pipeline.Empty
-
-        image_file = self.images.popleft()
-        image_id = 0
-        if isinstance(image_file, list):
-            image_file, image_id = image_file
-
-        # print("Current File: " + image_file)
-
-        image = cv2.imread(image_file)
-
-        if image is None:
-            try:
-                image = np.reshape(
-                    np.fromfile(image_file, dtype=np.uint8), cfg.MTAUR_DIMENSIONS)
-            except Exception as e:
-                print(f"Got Exception: {e}")
-                print(
-                    f"*** Error: byte length not recognized or file: {image_file} ***")
+        with tf.device("CPU:0"):
+            if not self.image_ready() or not self.is_working():
                 return Pipeline.Empty
 
-        preproc_image = self.preprocess(image)
-        # Convert from BGR to RGB
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        # image = tf.reverse(image, [-1])
+            image_file = self.images.popleft()
+            image_id = 0
+            if isinstance(image_file, list):
+                image_file, image_id = image_file
 
-        # pre_proc = tf.image.resize(image, (self.size, self.size)) / 255.0
-        # # pre_proc = [cv2.resize(image, (self.size, self.size)) / 255.0]
+            # print("Current File: " + image_file)
 
-        # # pre_proc = constant(np.asanyarray(pre_proc))
-        # pre_proc = tf.reshape(pre_proc, (1, *pre_proc.shape))
+            image = cv2.imread(image_file)
 
-        data = {
-            "image_path": image_file,
-            "image_id": image_id,
-            "image": image,
-            "predictions": preproc_image,
-            "meta": None
-        }
+            if image is None:
+                try:
+                    image = np.reshape(
+                        np.fromfile(image_file, dtype=np.uint8), cfg.MTAUR_DIMENSIONS)
+                except Exception as e:
+                    print(f"Got Exception: {e}")
+                    print(
+                        f"*** Error: byte length not recognized or file: {image_file} ***")
+                    return Pipeline.Empty
 
-        return data
+            pp = tf.image.resize(image, (self.size, self.size)) / 255.0
+            preproc_image = self.preprocess(pp)
+
+            data = {
+                "image_path": image_file,
+                "image_id": image_id,
+                "image": image,
+                "predictions": preproc_image,
+                "meta": None
+            }
+
+            return data
