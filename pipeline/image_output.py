@@ -25,6 +25,7 @@ class ImageOutput(Pipeline):
 
     def map(self, data):
 
+        # print("im out")
         self.export_img(data)
 
         return data
@@ -35,7 +36,7 @@ class ImageOutput(Pipeline):
         image_id = data["image_path"]
         image = data[self.dst]
 
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
         # Prepare output for image based on image_id
         dirname, basename = os.path.split(image_id)

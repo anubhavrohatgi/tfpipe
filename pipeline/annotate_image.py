@@ -24,13 +24,14 @@ class AnnotateImage(Pipeline):
     def annotate_predictions(self, data):
         mask, boxes, scores = data["predictions"]
 
+        # print('annotate')
         with tf.device("CPU:0"):
             boxes = tf.boolean_mask(boxes, mask)
             scores = tf.boolean_mask(scores, mask)
 
             boxes = tf.reshape(boxes, (1, -1, 1, 4))
             scores = tf.reshape(scores, (1, -1, tf.shape(scores)[-1]))
-            
+
             ####
 
             boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(

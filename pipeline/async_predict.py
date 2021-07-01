@@ -24,19 +24,30 @@ class AsyncPredictor(Process):
 
     def run(self):
         """ The main prediction loop. """
+        print("starting")
+        gpu = tf.config.list_physical_devices('GPU')[self.device]
+        tf.config.experimental.set_memory_growth(gpu, True)
+        gpu_cfg = [tf.config.LogicalDeviceConfiguration(memory_limit=2000)]
+        tf.config.set_logical_device_configuration(gpu, gpu_cfg)
 
-        with tf.device(self.device):
+        vgpu = tf.config.list_logical_devices('GPU')[self.device]
+        print(vgpu)
+
+        print("with")
+        # with tf.device(self.device):
+        with tf.device(vgpu.name):
+            # with tf.device("/device:GPU:0"):
 
             # Create the model and prediction function
-            print("Building Model for Device: " + self.device)
+            print(f"Building Model for Device: {self.device}")
             predict = build_predictor(self.framework, self.weights, self.size)
 
-            print("Inferencing Test Image: " + self.device)
+            print(f"Inferencing Test Image: {self.device}")
             predict(get_init_img(self.size))
 
             # Set ready flag
             self.ready.value = 1
-            print("Ready: " + self.device)
+            print(f"Ready: {self.device}")
             while True:
                 data = self.task_queue.get()
                 if data == Pipeline.Exit:
@@ -55,6 +66,7 @@ class AsyncPredict(Pipeline):
     """ The pipeline task for multi-process predicting. """
 
     def __init__(self, args):
+        print("listing devices")
         gpus, cpus = get_devices()
         num_gpus = min(len(gpus), args.gpus)
         num_cpus = min(len(cpus), args.cpus)
@@ -67,10 +79,13 @@ class AsyncPredict(Pipeline):
         self.result_queue = Queue()
         self.workers = list()
 
+        # create as many as you want,
+        # doesn't matter what the name is because diff name space... maybe
+
         # Create GPU Predictors
         for gpu_id in range(num_gpus):
             worker = AsyncPredictor(
-                args, f"GPU:{gpu_id}", self.task_queue, self.result_queue)
+                args, gpu_id, self.task_queue, self.result_queue)
             self.workers.append(worker)
 
         # Create CPU Predictors

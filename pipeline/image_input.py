@@ -1,10 +1,11 @@
 import cv2
+import tensorflow as tf
 import numpy as np
 from tensorflow import constant
 from collections import deque
 
 from tfpipe.core.config import cfg
-from tfpipe.core.utils import images_from_dir
+from tfpipe.core.utils import images_from_dir, build_preproc
 from tfpipe.pipeline.pipeline import Pipeline
 
 
@@ -18,6 +19,8 @@ class ImageInput(Pipeline):
         images = images_from_dir(path)
 
         self.images = deque(images)
+
+        self.preprocess = build_preproc(size)
 
         super().__init__()
 
@@ -34,6 +37,8 @@ class ImageInput(Pipeline):
     def map(self, _):
         """ Returns the image content of the next image in the input. """
 
+        # print("im input")
+        # with tf.device("CPU:0"):
         if not self.image_ready() or not self.is_working():
             return Pipeline.Empty
 
@@ -56,17 +61,22 @@ class ImageInput(Pipeline):
                     f"*** Error: byte length not recognized or file: {image_file} ***")
                 return Pipeline.Empty
 
-        image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-        pre_proc = [cv2.resize(image, (self.size, self.size)) / 255.0]
+        preproc_image = self.preprocess(image)
+        # Convert from BGR to RGB
+        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # image = tf.reverse(image, [-1])
 
+        # pre_proc = tf.image.resize(image, (self.size, self.size)) / 255.0
+        # # pre_proc = [cv2.resize(image, (self.size, self.size)) / 255.0]
 
-        pre_proc = constant(np.asanyarray(pre_proc).astype(np.float32))
+        # # pre_proc = constant(np.asanyarray(pre_proc))
+        # pre_proc = tf.reshape(pre_proc, (1, *pre_proc.shape))
 
         data = {
             "image_path": image_file,
             "image_id": image_id,
             "image": image,
-            "predictions": pre_proc,
+            "predictions": preproc_image,
             "meta": None
         }
 

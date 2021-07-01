@@ -144,8 +144,9 @@ def create_redis(host, port):
                   db=0,
                   charset='utf-8',
                   decode_responses=True)
-    
+
     return redis
+
 
 def draw_bbox(image, bboxes, classes, show_label=True):
     num_classes = len(classes)
@@ -337,6 +338,20 @@ def fbox(box_xywh, scores, input_shape, score_threshold=0.4):
     return (mask, boxes, pred_conf)
 
 
+def build_preproc(size):
+    """ Returns function used to preprocess an image. """
+
+    def preproc_img(image):
+
+        # Convert from BGR to RGB
+        pp = tf.reverse(image, [-1])
+        pp = tf.image.resize(pp, (size, size)) / 255.0
+
+        return tf.reshape(pp, (1, size, size, 3))
+
+    return preproc_img
+
+
 def build_predictor(framework, weights, size):
     """ Returns function used to make predictions. """
 
@@ -351,7 +366,6 @@ def build_predictor(framework, weights, size):
             mask, boxes, conf = fbox(boxes, conf, tf.constant([size, size]))
 
             return mask, boxes, conf
-
 
     elif framework == 'tflite':
         pass

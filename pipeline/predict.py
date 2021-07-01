@@ -1,3 +1,5 @@
+import tensorflow as tf
+
 from tfpipe.core.utils import get_init_img, build_predictor
 from tfpipe.pipeline.pipeline import Pipeline
 
@@ -6,12 +8,26 @@ class Predict(Pipeline):
     """ The pipeline task for single-process predicting. """
 
     def __init__(self, args):
-        print("Loading model...")
-        self.predict = build_predictor(args.framework, args.weights, args.size)
 
-        print("Inferencing Test Image...")
+        print("starting")
+        gpu = tf.config.list_physical_devices('GPU')[0]
+        tf.config.experimental.set_memory_growth(gpu, True)
+        gpu_cfg = [tf.config.LogicalDeviceConfiguration(memory_limit=5000)]
+        tf.config.set_logical_device_configuration(gpu, gpu_cfg)
 
-        self.predict(get_init_img(args.size))
+        vgpu = tf.config.list_logical_devices('GPU')[0]
+        print(vgpu)
+        self.device = vgpu.name
+
+        with tf.device(self.device):
+
+            print("Loading model...")
+            self.predict = build_predictor(
+                args.framework, args.weights, args.size)
+
+            print("Inferencing Test Image...")
+
+            self.predict(get_init_img(args.size))
 
         super().__init__()
 
@@ -27,7 +43,9 @@ class Predict(Pipeline):
         return False
 
     def map(self, data):
-        data["predictions"] = self.predict(data["predictions"])
+        # print('prd')
+        with tf.device(self.device):
+            data["predictions"] = self.predict(data["predictions"])
 
         return data
 
