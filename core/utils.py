@@ -148,9 +148,29 @@ def create_redis(host, port):
     return redis
 
 
+def iter_bboxes(bboxes, num_classes):
+    """ Yields the class indicator, bbox coordinates (TL, BR in (y, x)), and
+    the score for each detection in bboxes. """
+
+    out_boxes, out_scores, out_classes, num_boxes = [b[0] for b in bboxes]
+
+    for i in range(num_boxes):
+        class_ind = int(out_classes[i])
+        if class_ind < 0 or class_ind > num_classes:
+            continue
+
+        coords = tf.split(out_boxes[i], 2)
+        score = out_scores[i]
+
+        yield class_ind, coords, score
+
+
 def draw_bbox(image, bboxes, classes, show_label=True):
+    """ Draws bounding boxes, and labels if show_label, on the image. """
+
     num_classes = len(classes)
-    image_h, image_w, _ = image.shape
+    dims = tf.cast(image.shape[:2], tf.float32)
+
     hsv_tuples = [(1.0 * i / num_classes, 1., 1.) for i in range(num_classes)]
     colors = map(lambda x: colorsys.hsv_to_rgb(*x), hsv_tuples)
     colors = list(
@@ -160,33 +180,21 @@ def draw_bbox(image, bboxes, classes, show_label=True):
     random.shuffle(colors)
     random.seed(None)
 
-    out_boxes, out_scores, out_classes, num_boxes = [b[0] for b in bboxes]
-    for i in range(num_boxes):
-        class_ind = int(out_classes[i])
-        if class_ind < 0 or class_ind > num_classes:
-            continue
+    for class_ind, coords, score in iter_bboxes(bboxes, num_classes):
+        (y1, x1), (y2, x2) = tf.cast(dims * coords, tf.int32).numpy()
 
-        coor = out_boxes[i]
-        coor[0] = coor[0] * image_h
-        coor[2] = coor[2] * image_h
-        coor[1] = coor[1] * image_w
-        coor[3] = coor[3] * image_w
-
-        score = out_scores[i]
         bbox_color = colors[class_ind]
-        bbox_thick = int(0.6 * (image_h + image_w) / 600)
-        c1, c2 = (int(coor[1]), int(coor[0])), (int(coor[3]), int(coor[2]))
-        cv2.rectangle(image, c1, c2, bbox_color, bbox_thick)
+        bbox_thick = tf.cast(tf.reduce_sum(dims) / 1000, tf.int32).numpy()
+        cv2.rectangle(image, (x1, y1), (x2, y2), bbox_color, bbox_thick)
 
         if show_label:
-            bbox_mess = '%s: %.2f' % (classes[class_ind], score)
-            t_size = cv2.getTextSize(
+            bbox_mess = f"{classes[class_ind]}: {score:.2f}"
+            t1, t2 = cv2.getTextSize(
                 bbox_mess, 0, cfg.FONTSCALE, thickness=bbox_thick // 2)[0]
-            c3 = (c1[0] + t_size[0], c1[1] - t_size[1] - 3)
-            cv2.rectangle(image, c1, (c3[0],
-                                      c3[1]), bbox_color, -1)  # filled
+            c3 = (x1 + t1, y1 - t2 - 3)
+            cv2.rectangle(image, (x1, y1), c3, bbox_color, -1)  # filled
 
-            cv2.putText(image, bbox_mess, (c1[0], c1[1] - 2), cv2.FONT_HERSHEY_SIMPLEX,
+            cv2.putText(image, bbox_mess, (x1, y1 - 2), cv2.FONT_HERSHEY_SIMPLEX,
                         cfg.FONTSCALE, (0, 0, 0), bbox_thick // 2, lineType=cv2.LINE_AA)
 
     return image
@@ -344,7 +352,7 @@ def build_preproc(size):
     spec = (tf.TensorSpec((size, size, 3), dtype=tf.dtypes.float32),)
 
     @ tf.function(input_signature=spec, jit_compile=True)
-    def preproc_img(image):
+    def preproc(image):
 
         # Convert from BGR to RGB
         pp = tf.reverse(image, [-1])
@@ -352,7 +360,7 @@ def build_preproc(size):
 
         return tf.reshape(pp, (1, size, size, 3))
 
-    return preproc_img
+    return preproc
 
 
 def build_predictor(framework, weights, size):
@@ -376,5 +384,6 @@ def build_predictor(framework, weights, size):
         assert False, f"Invalid Framework: {framework}"
 
     return predict
+
 
 ######################

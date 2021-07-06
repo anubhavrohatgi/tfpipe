@@ -12,7 +12,7 @@ class Predict(Pipeline):
         print("starting")
         gpu = tf.config.list_physical_devices('GPU')[0]
         tf.config.experimental.set_memory_growth(gpu, True)
-        gpu_cfg = [tf.config.LogicalDeviceConfiguration(memory_limit=5000)]
+        gpu_cfg = [tf.config.LogicalDeviceConfiguration(memory_limit=3000)]
         tf.config.set_logical_device_configuration(gpu, gpu_cfg)
 
         vgpu = tf.config.list_logical_devices('GPU')[0]
