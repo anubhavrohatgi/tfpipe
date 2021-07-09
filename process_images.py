@@ -4,7 +4,6 @@ import tensorflow as tf
 from redis import Redis
 from multiprocessing import set_start_method
 
-print(os.getcwd())
 import config as cfg
 
 from tfpipe.pipeline.pipeline import Pipeline
@@ -64,9 +63,9 @@ def parse_args():
     # Redis Settings
     ap.add_argument("-r", "--redis", action="store_true",
                     help="signal to use redis capture")
-    ap.add_argument("-rh", "--redis-host", default=cfg.REDIS.REDIS_HOST,
+    ap.add_argument("-rh", "--redis-host", default=cfg.REDIS.HOST,
                     help="the host name for redis")
-    ap.add_argument("-rp", "--redis-port", default=cfg.REDIS.REDIS_PORT,
+    ap.add_argument("-rp", "--redis-port", default=cfg.REDIS.PORT,
                     help="the port for redis")
     ap.add_argument("-rchi", "--redis-ch-in", default=cfg.REDIS.CH_IN,
                     help="the redis input channel for frames")
@@ -74,10 +73,10 @@ def parse_args():
                     help="the redis output channel for predictions")
 
     # Mutliprocessing Settings
-    ap.add_argument("--gpus", type=int, default=1,
-                    help="number of GPUs (default: 1)")
-    ap.add_argument("--cpus", type=int, default=0,
-                    help="number of CPUs (default: 0)")
+    ap.add_argument("--gpus", default=cfg.GPU.NUM,
+                    help="number of GPUs (default: all)")
+    ap.add_argument("--vram", type=int, default=cfg.GPU.MEM,
+                    help="amount of VRAM per gpu")
     ap.add_argument("--single-process", action="store_true",
                     help="force the pipeline to run in a single process")
 
@@ -106,6 +105,12 @@ def main(args):
     else:
         predict = Predict(args)
 
+    # Wait for models to load before starting input stream
+    while not predict.infer_ready():
+        pass
+    print("Predictors ready! Loading other pipeline tasks...")
+    
+
     if args.redis:
         redis = Redis(host=args.redis_host,
                       port=args.redis_port,
@@ -117,7 +122,7 @@ def main(args):
             redis_info=(args.redis_host, args.redis_port, args.redis_ch_in), size=args.size)
         annotate_image = RedisAnnotate(
             output_type, args.iou, args.score, args.classes)
-        image_output = RedisOutput(redis, output_type)
+        image_output = RedisOutput(redis, args.redis_ch_out, output_type)
     else:
         image_input = ImageInput(
             path=args.input, size=args.size, meta=args.meta)
@@ -128,11 +133,7 @@ def main(args):
     # Create the image processing pipeline
     pipeline = image_input >> predict >> annotate_image >> image_output
 
-    # Wait for models to load before starting input stream
-    while not predict.infer_ready():
-        pass
-
-    print("Predictors ready! Beginning processing...")
+    print("All tasks ready! Beginning processing...")
 
     # Main Loop
     t = time()
