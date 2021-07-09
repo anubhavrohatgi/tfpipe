@@ -63,7 +63,6 @@ class AsyncPredict(Pipeline):
     """ The pipeline task for multi-process predicting. """
 
     def __init__(self, args):
-        print("listing devices")
         gpus = tf.config.list_physical_devices("GPU")
         
         num_gpus = len(gpus) if args.gpus == "all" else int(args.gpus)

@@ -40,7 +40,7 @@ class ImageInput(Pipeline):
 
         return True
 
-    def map(self, _):
+    def map(self, _=None):
         """ Returns the image content of the next image in the input. """
 
         # print("im input")

@@ -234,28 +234,14 @@ def get_meta(shape, image_id, bboxes, classes):
 
     return metadata
 
-
 def convert_redis(file_path, shape, num_classes, bboxes):
     """ Converts predictions to the Redis output format. """
 
-    image_h, image_w, *_ = shape
-
-    out_boxes, out_scores, out_classes, num_boxes = [b[0] for b in bboxes]
+    dims = tf.cast(shape[:2], tf.float32)
 
     output = ""
-
-    for i in range(num_boxes):
-        class_ind = int(out_classes[i])
-        if class_ind < 0 or class_ind > num_classes:
-            continue
-
-        coor = out_boxes[i]
-        x1 = coor[1] * image_w
-        x2 = coor[3] * image_w
-        y1 = coor[0] * image_h
-        y2 = coor[2] * image_h
-
-        score = out_scores[i]
+    for class_ind, coords, score in iter_bboxes(bboxes, num_classes):
+        (y1, x1), (y2, x2) = (dims * coords).numpy()
 
         output += f"{file_path},{class_ind},{x1},{y1},{x2},{y2},{score},"
 
