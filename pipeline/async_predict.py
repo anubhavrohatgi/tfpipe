@@ -1,7 +1,7 @@
 import tensorflow as tf
 from multiprocessing import Process, Queue, Value
 
-from tfpipe.core.utils import get_devices, get_init_img, build_predictor
+from tfpipe.core.utils import get_init_img, build_predictor
 from tfpipe.pipeline.pipeline import Pipeline
 
 from time import time
@@ -10,11 +10,12 @@ from time import time
 class AsyncPredictor(Process):
     """ The asynchronous predictor. """
 
-    def __init__(self, args, device, task_queue, result_queue):
+    def __init__(self, args, device, vram, task_queue, result_queue):
         self.size = args.size
         self.weights = args.weights
         self.framework = args.framework
         self.device = device
+        self.vram = vram
         self.task_queue = task_queue
         self.result_queue = result_queue
 
@@ -24,19 +25,15 @@ class AsyncPredictor(Process):
 
     def run(self):
         """ The main prediction loop. """
-        print("starting")
-        gpu = tf.config.list_physical_devices('GPU')[self.device]
+
+        gpu = tf.config.list_physical_devices("GPU")[self.device]
+        tf.config.set_visible_devices([gpu], "GPU")
         tf.config.experimental.set_memory_growth(gpu, True)
-        gpu_cfg = [tf.config.LogicalDeviceConfiguration(memory_limit=3000)]
+        gpu_cfg = [tf.config.LogicalDeviceConfiguration(memory_limit=self.vram)]
         tf.config.set_logical_device_configuration(gpu, gpu_cfg)
 
-        vgpu = tf.config.list_logical_devices('GPU')[0]
-        print(vgpu)
-
-        print("with")
-        # with tf.device(self.device):
+        vgpu = tf.config.list_logical_devices("GPU")[0]
         with tf.device(vgpu.name):
-            # with tf.device("/device:GPU:0"):
 
             # Create the model and prediction function
             print(f"Building Model for Device: {self.device}")
@@ -67,10 +64,10 @@ class AsyncPredict(Pipeline):
 
     def __init__(self, args):
         print("listing devices")
-        gpus, cpus = get_devices()
-        num_gpus = min(len(gpus), args.gpus)
-        num_cpus = min(len(cpus), args.cpus)
-        assert num_gpus > 0 or num_cpus > 0, "Must specify number of gpus or cpus"
+        gpus = tf.config.list_physical_devices("GPU")
+        
+        num_gpus = len(gpus) if args.gpus == "all" else int(args.gpus)
+        assert num_gpus > 0, "Must specify number of gpus greater than 0"
 
         # Number of inputs and outputs
         self.inx = self.outx = 0
@@ -79,10 +76,11 @@ class AsyncPredict(Pipeline):
         self.result_queue = Queue()
         self.workers = list()
 
+
         # Create GPU Predictors
         for gpu_id in range(num_gpus):
             worker = AsyncPredictor(
-                args, gpu_id, self.task_queue, self.result_queue)
+                args, gpu_id, args.vram, self.task_queue, self.result_queue)
             self.workers.append(worker)
 
         # Start the Jobs

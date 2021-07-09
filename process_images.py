@@ -4,6 +4,7 @@ import tensorflow as tf
 from redis import Redis
 from multiprocessing import set_start_method
 
+print(os.getcwd())
 import config as cfg
 
 from tfpipe.pipeline.pipeline import Pipeline
