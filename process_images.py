@@ -31,23 +31,23 @@ def parse_args():
     # Parse command line arguments
     ap = argparse.ArgumentParser(
         description="TensorFlow YOLOv4 Image Processing Pipeline")
-    ap.add_argument("-i", "--input", default=cfg.MODEL.INPUT,
+    ap.add_argument("-i", "--input", default=cfg.MODEL.EVAL.INPUT,
                     help="path to the input image/directory or list of file paths stored in a json file")
-    ap.add_argument("-w", "--weights", default=cfg.MODEL.WEIGHTS,
+    ap.add_argument("-w", "--weights", default=cfg.MODEL.EVAL.WEIGHTS,
                     help="path to weights file")
-    ap.add_argument("-s", "--size", type=int, default=cfg.MODEL.IMAGE_SIZE,
+    ap.add_argument("-s", "--size", type=int, default=cfg.MODEL.EVAL.IMAGE_SIZE,
                     help="the value to which the images will be resized")
 
     # Model Settings
-    ap.add_argument("-f", "--framework", default=cfg.MODEL.FRAMEWORK,
+    ap.add_argument("-f", "--framework", default=cfg.MODEL.EVAL.FRAMEWORK,
                     help="the framework of the model")
     ap.add_argument("--tiny", action="store_true",
                     help="use yolo-tiny instead of yolo")
-    ap.add_argument("--iou", default=cfg.MODEL.IOU_THRESH,
+    ap.add_argument("--iou", default=cfg.MODEL.EVAL.IOU_THRESH,
                     help="iou threshold")
-    ap.add_argument("--score", default=cfg.MODEL.SCORE_THRESH,
+    ap.add_argument("--score", default=cfg.MODEL.EVAL.SCORE_THRESH,
                     help="score threshold")
-    ap.add_argument("--classes", default=cfg.MODEL.CLASSES,
+    ap.add_argument("--classes", default=cfg.MODEL.EVAL.CLASSES,
                     help="file path to classes")
 
     # Output Settings
@@ -67,6 +67,10 @@ def parse_args():
                     help="the host name for redis")
     ap.add_argument("-rp", "--redis-port", default=cfg.REDIS.REDIS_PORT,
                     help="the port for redis")
+    ap.add_argument("-rchi", "--redis-ch-in", default=cfg.REDIS.CH_IN,
+                    help="the redis input channel for frames")
+    ap.add_argument("-rcho", "--redis-ch-out", default=cfg.REDIS.CH_OUT,
+                    help="the redis output channel for predictions")
 
     # Mutliprocessing Settings
     ap.add_argument("--gpus", type=int, default=1,
@@ -82,18 +86,14 @@ def parse_args():
 def main(args):
     """ The main function for image processing. """
 
-    import pickle  # temp
-    with open('args.pkl', 'wb') as f:
-        pickle.dump(args, f)
-
     # Create output directory if needed
     os.makedirs(args.output, exist_ok=True)
 
     # GPU Logging
     tf.debugging.set_log_device_placement(False)
-    gpus = tf.config.list_physical_devices('GPU')
-    for gpu in gpus:
-        tf.config.experimental.set_memory_growth(gpu, True)
+
+    # tf.config.threading.set_inter_op_parallelism_threads(10)
+    # tf.config.threading.set_intra_op_parallelism_threads(10)
 
     # Image output type
     output_type = "vis_image"
@@ -112,7 +112,8 @@ def main(args):
                       charset='utf-8',
                       decode_responses=True)
 
-        image_input = RedisCapture(redis)
+        image_input = RedisCapture(
+            redis_info=(args.redis_host, args.redis_port, args.redis_ch_in), size=args.size)
         annotate_image = RedisAnnotate(
             output_type, args.iou, args.score, args.classes)
         image_output = RedisOutput(redis, output_type)
@@ -124,10 +125,7 @@ def main(args):
         image_output = ImageOutput(output_type, args)
 
     # Create the image processing pipeline
-    pipeline = (image_input
-                >> predict)
-    # >> annotate_image
-    # >> image_output)
+    pipeline = image_input >> predict >> annotate_image >> image_output
 
     # Wait for models to load before starting input stream
     while not predict.infer_ready():
@@ -140,7 +138,7 @@ def main(args):
     index = 0
     results = list()
     while image_input.is_working() or predict.is_working():
-        result = pipeline.map(None)
+        result = pipeline(None)
         if result != Pipeline.Skip:
             results.append(result)
 
@@ -156,8 +154,8 @@ def main(args):
 
     # Metadata
     if args.meta:
-        results = [data["meta"] for data in results]
-        with open(os.path.join("output", "tf_meta.json"), 'w') as f:
+        results = [meta for data in results for meta in data["meta"]]
+        with open(os.path.join("output", "results.json"), 'w') as f:
             json.dump(results, f)
 
     # print("Results: " + str(results))
