@@ -21,7 +21,7 @@ class AsyncPredictor(Process):
 
         self.ready = Value('i', 0)
 
-        super().__init__(daemon=True)
+        super().__init__(daemon=False)
 
     def run(self):
         """ The main prediction loop. """
@@ -45,24 +45,31 @@ class AsyncPredictor(Process):
             # Set ready flag
             self.ready.value = 1
             print(f"Ready: {self.device}")
+
+            # index = 0
+            # t = time()
+            
             while True:
                 data = self.task_queue.get()
                 if data == Pipeline.Exit:
                     break
 
-                t = time()
                 data["predictions"] = predict(data["predictions"])
                 # print(f"Device: {self.device} | Time: {time() - t} s")
 
                 self.result_queue.put(data)
 
                 # print(self.device, "done")
+                # index += 1
+            
+            # runtime = time() - t
+            # print(f"GPU: {self.device} | Images: {index} | Runtime: {runtime} | FPS: {index/runtime}")
 
 
 class AsyncPredict(Pipeline):
     """ The pipeline task for multi-process predicting. """
 
-    def __init__(self, args):
+    def __init__(self, args, is_redis):
         gpus = tf.config.list_physical_devices("GPU")
         
         num_gpus = len(gpus) if args.gpus == "all" else int(args.gpus)
@@ -71,7 +78,7 @@ class AsyncPredict(Pipeline):
         # Number of inputs and outputs
         self.inx = self.outx = 0
 
-        self.task_queue = Queue()
+        self.task_queue = Queue(maxsize=1 if is_redis else 0)
         self.result_queue = Queue()
         self.workers = list()
 
@@ -89,16 +96,16 @@ class AsyncPredict(Pipeline):
         super().__init__()
 
     def map(self, data):
-        if data != Pipeline.Empty:
+        if data != Pipeline.Empty and not self.task_queue.full():
             self.put(data)
 
         return self.get() if self.output_ready() else Pipeline.Skip
 
-    def put(self, data):
+    def put(self, data, block=False):
         """ Puts data in the task queue. """
 
         self.inx += 1
-        self.task_queue.put(data)
+        self.task_queue.put(data, block)
 
     def get(self):
         """ Returns first element in the output queue. """

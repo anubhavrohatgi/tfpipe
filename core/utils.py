@@ -355,17 +355,33 @@ def build_predictor(framework, weights, size):
     if framework == 'tf':
         model = tf.keras.models.load_model(weights, compile=False)
         spec = (tf.TensorSpec((1, size, size, 3), dtype=tf.dtypes.float32),)
+        input_shape = (size, size)
 
-        @ tf.function(input_signature=spec, jit_compile=True)
+        @tf.function(input_signature=spec, jit_compile=True)
         def predict(data):
             boxes, conf = model(data)
 
+            return fbox(boxes, conf, input_shape)
+
+
+    elif framework == 'tflite':
+        model = tf.lite.Interpreter(model_path=weights)
+        model.allocate_tensors()
+        input_ind, *_ = [inp['index'] for inp in model.get_input_details()]
+        bbox_ind, pred_ind = [out['index'] for out in model.get_output_details()]
+
+        spec = (tf.TensorSpec((1, size, size, 3), dtype=tf.dtypes.float32),)
+        @tf.function(input_signature=spec)
+        def predict(data):
+            
+            model.set_tensor(input_ind, data)
+            model.invoke()
+            
+            boxes, conf = model.get_tensor(bbox_ind), model.get_tensor(pred_ind)
             mask, boxes, conf = fbox(boxes, conf, tf.constant([size, size]))
 
             return mask, boxes, conf
 
-    elif framework == 'tflite':
-        pass
     else:
         assert False, f"Invalid Framework: {framework}"
 

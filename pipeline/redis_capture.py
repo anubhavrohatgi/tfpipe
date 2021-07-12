@@ -37,9 +37,10 @@ class RedisCapture(Pipeline):
                 print("*** Failed to connect to Redis channel. Exiting... ***")
                 self.ready_val.value = -1
             else:
-
+                index = 0
                 for msg in pub.listen():
-                    print(f"Message Received: {msg}")
+                    print(f"Message Received: {msg} | Index: {index}")
+                    index += 1
                     data = msg['data']
 
                     if data == 1:
@@ -110,7 +111,6 @@ class RedisCapture(Pipeline):
                 return Pipeline.Empty
 
             image_file = self._worker.get()
-            image_id = 0
             if isinstance(image_file, list):
                     image_file, image_id = image_file
 
@@ -133,7 +133,6 @@ class RedisCapture(Pipeline):
 
             data = {
                 "image_path": image_file,
-                "image_id": image_id,
                 "image": image,
                 "predictions": preproc_image,
                 "meta": None

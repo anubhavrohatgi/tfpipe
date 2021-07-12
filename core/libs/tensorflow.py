@@ -41,7 +41,6 @@ def resize(images,
             if antialias:
                 return resize_with_scale_and_translate('triangle')
             else:
-                print("half_pixel_centers: " + str(half_pixel_centers))
                 return gen_image_ops.resize_bilinear(
                     images_t, new_size, half_pixel_centers=half_pixel_centers)
         elif method == ResizeMethod.NEAREST_NEIGHBOR:
