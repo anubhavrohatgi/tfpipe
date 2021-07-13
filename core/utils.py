@@ -331,6 +331,19 @@ def fbox(box_xywh, scores, input_shape, score_threshold=0.4):
     # return tf.concat([boxes, pred_conf], axis=-1)
     return (mask, boxes, pred_conf)
 
+def filter_boxes_v3(box_xywh, conf, input_shape):
+    box_hw, box_yx = tf.split(tf.reverse(box_xywh, [-1]), (2, 2), axis=-1)
+
+    half_hw = box_hw / 2.
+    box_mins = (box_yx - half_hw) / input_shape
+    box_maxes = (box_yx + half_hw) / input_shape
+    boxes = tf.concat([box_mins,box_maxes], axis=-1)
+
+    boxes = tf.reshape(boxes, (1, -1, 1, 4))
+    scores = tf.reshape(conf, (1, -1, tf.shape(conf)[-1]))
+
+    return boxes, scores
+
 
 def build_preproc(size):
     """ Returns function used to preprocess an image. """
@@ -342,7 +355,6 @@ def build_preproc(size):
 
         # Convert from BGR to RGB
         pp = tf.reverse(image, [-1])
-        # pp = tf.image.resize(pp, (size, size)) / 255.0
 
         return tf.reshape(pp, (1, size, size, 3))
 
@@ -355,13 +367,8 @@ def build_predictor(framework, weights, size):
     if framework == 'tf':
         model = tf.keras.models.load_model(weights, compile=False)
         spec = (tf.TensorSpec((1, size, size, 3), dtype=tf.dtypes.float32),)
-        input_shape = (size, size)
 
-        @tf.function(input_signature=spec, jit_compile=True)
-        def predict(data):
-            boxes, conf = model(data)
-
-            return fbox(boxes, conf, input_shape)
+        predict = tf.function(model, input_signature=spec, jit_compile=True)
 
 
     elif framework == 'tflite':
