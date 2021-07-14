@@ -55,6 +55,7 @@ class RedisCapture(Pipeline):
 
                     for image_path in images:
                         self.image_queue.put(image_path)
+        
 
         @property
         def ready(self):

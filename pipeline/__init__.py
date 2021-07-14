@@ -13,3 +13,4 @@ from . import redis_annotate
 # OUTPUTS #
 from . import image_output
 from . import redis_output
+from . import async_output
