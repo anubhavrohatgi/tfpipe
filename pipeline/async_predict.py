@@ -1,5 +1,6 @@
 import tensorflow as tf
 from multiprocessing import Process, Queue, Value
+from ujson import loads
 
 from tfpipe.core.utils import get_init_img, build_predictor
 from tfpipe.pipeline.pipeline import Pipeline
@@ -72,8 +73,10 @@ class AsyncPredict(Pipeline):
     def __init__(self, args, is_redis):
         gpus = tf.config.list_physical_devices("GPU")
         
-        num_gpus = len(gpus) if args.gpus == "all" else int(args.gpus)
+        gpu_spec = loads(args.gpu_spec)
+        num_gpus = len(gpus) if args.gpus == "all" or gpu_spec else int(args.gpus)
         assert num_gpus > 0, "Must specify number of gpus greater than 0"
+        assert not [1 for gpu_id in gpu_spec if gpu_id >= num_gpus], "Must specify valid GPU"
 
         # Number of inputs and outputs
         self.inx = self.outx = 0
@@ -84,7 +87,7 @@ class AsyncPredict(Pipeline):
 
 
         # Create GPU Predictors
-        for gpu_id in range(num_gpus):
+        for gpu_id in (range(num_gpus) if not gpu_spec else gpu_spec):
             worker = AsyncPredictor(
                 args, gpu_id, args.vram, self.task_queue, self.result_queue)
             self.workers.append(worker)

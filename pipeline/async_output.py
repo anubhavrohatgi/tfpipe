@@ -21,6 +21,7 @@ class AsyncOutput(Pipeline):
 
         
         def run(self):
+            tf.config.set_visible_devices([], "GPU")
             with tf.device("CPU:0"):
                 while True:
                     data = self.output_queue.get()
