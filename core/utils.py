@@ -14,10 +14,15 @@ from tfpipe.core.libs.tensorflow import resize  # <-- needed for namespace
 ##### GENERAL #####
 
 
-def valid_extension(path):
+def valid_img_extension(path):
     """ Returns True if `path` has a valid extension for an image. """
 
-    return os.path.splitext(path)[-1].lower() in cfg.VALID_EXTS
+    return os.path.splitext(path)[-1].lower() in cfg.VALID_IMG_EXTS
+
+def valid_vid_extension(path):
+    """ Returns True if `path` has a valid extension for a video. """
+
+    return os.path.splitext(path)[-1].lower() in cfg.VALID_VID_EXTS
 
 
 def images_from_file(path: str, root: str = ""):
@@ -25,8 +30,11 @@ def images_from_file(path: str, root: str = ""):
 
     if path.endswith('.json'):
         images = load(open(os.path.join(root, path), 'r'))
+    elif valid_vid_extension(path):
+        full_path = os.path.join(root, path)
+        images = [[full_path, cv2.VideoCapture(full_path)]]
     else:
-        images = [os.path.join(root, path)] if valid_extension(path) else []
+        images = [os.path.join(root, path)] if valid_img_extension(path) else []
 
     return images
 
@@ -38,7 +46,7 @@ def images_from_dir(path: str):
         images = list()
         for root, _, files in os.walk(path):
             for img in files:
-                if valid_extension(img):
+                if valid_img_extension(img) or valid_vid_extension(img):
                     images += images_from_file(img, root)
     else:
         images = images_from_file(path)
@@ -52,6 +60,22 @@ def read_class_names(class_file_name):
         for ID, name in enumerate(data):
             names[ID] = name.strip('\n')
     return names
+
+def gen_from_cap(image_file, cap):
+    """ Yields frames from a cv2.VideoCapture object. """
+
+    image_file = os.path.splitext(os.path.basename(image_file))[0]
+    frame_id = 0
+    while cap.isOpened():
+        ret, frame = cap.read()
+
+        if not ret:
+            cap.release()
+            continue
+
+        yield f"{image_file}-f{frame_id}", frame_id, frame
+
+        frame_id += 1
 
 ###################
 
@@ -200,7 +224,7 @@ def draw_bbox(image, bboxes, classes, show_label=True):
     return image
 
 
-def get_meta(shape, image_id, bboxes, classes):
+def get_meta(shape, image_path, image_id, bboxes, classes):
     """ Returns the dection metadata as a list of dictionary entries. """
 
     num_classes = len(classes)
@@ -225,7 +249,7 @@ def get_meta(shape, image_id, bboxes, classes):
 
         score = out_scores[i]
 
-        d = {"image_id": image_id, "category_id": class_ind, "bbox": [
+        d = {"path": os.path.basename(image_path), "image_id": image_id, "category_id": class_ind, "bbox": [
             x1, y1, w, h], "score": float(score)}
 
         # d = {"id": class_ind, "score": float(

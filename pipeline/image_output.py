@@ -26,20 +26,19 @@ class ImageOutput(Pipeline):
     def map(self, data):
 
         # print("im out")
-        self.export_img(data)
+        if not self.meta:
+            self.export_img(data)
 
         return data
 
     def export_img(self, data):
         """ Saves image to a file. Also displays the image if self.show is True. """
 
-        image_id = data["image_path"]
+        image_path = data["image_path"]
         image = data[self.dst]
 
-        # image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-
-        # Prepare output for image based on image_id
-        dirname, basename = os.path.split(image_id)
+        # Prepare output for image based on image_path
+        dirname, basename = os.path.split(image_path)
 
         dirname = os.path.join(
             self.dir, dirname) if self.full_base else self.dir

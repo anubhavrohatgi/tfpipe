@@ -11,7 +11,8 @@ cfg = __C
 # General parameters
 __C.FONTSCALE = .5
 __C.MTAUR_DIMENSIONS = (720, 1280, 3)
-__C.VALID_EXTS = [".jpg", ".png", ".json", ""]
+__C.VALID_IMG_EXTS = [".jpg", ".png", ".json", ""]
+__C.VALID_VID_EXTS = [".mp4", ".ts"]
 
 
 # Redis parameters
