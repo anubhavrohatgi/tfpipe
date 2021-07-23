@@ -24,6 +24,19 @@ def valid_vid_extension(path):
 
     return os.path.splitext(path)[-1].lower() in cfg.VALID_VID_EXTS
 
+def video_from_file(path: str):
+    """ Returns cv2.VideoCapture object for the video at `path`.
+    If no video exists, returns None. """
+
+    video = None
+    if not os.path.exists(path):
+        print(f"*** ERROR: No video exists at path: {path} ***")
+    elif not valid_vid_extension(path):
+        print(f"*** ERROR: Video does not have a valid extension. Valid Extensions: {cfg.VALID_VID_EXTS}")
+    else:
+        video = cv2.VideoCapture(path)
+    
+    return video
 
 def images_from_file(path: str, root: str = ""):
     """ Returns list of image paths from a file path. """
