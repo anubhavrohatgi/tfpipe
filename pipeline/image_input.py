@@ -11,9 +11,11 @@ from tfpipe.pipeline.pipeline import Pipeline
 class ImageInput(Pipeline):
     """ Pipeline task to capture images. """
 
-    def __init__(self, path, size, meta):
+    def __init__(self, path, size, meta, input_ready=None):
         self.size = size
         self.meta = meta
+        if input_ready:
+            self.input_ready = input_ready
 
         images = images_from_dir(path)
 
@@ -24,11 +26,10 @@ class ImageInput(Pipeline):
 
         self.preprocess = build_preproc(size)
 
-        with tf.device("CPU:0"):
-            print("Preprocessing Test Image...")
-            test_image = cv2.imread(cfg.INIT_IMG)
-            pp = tf.image.resize(test_image, (self.size, self.size)) / 255.0
-            self.preprocess(pp)
+        print("Preprocessing Test Image...")
+        test_image = cv2.imread(cfg.INIT_IMG)
+        pp = tf.image.resize(test_image, (self.size, self.size)) / 255.0
+        self.preprocess(pp)
 
         super().__init__(source=self.generator(deque(images)))
 
@@ -38,7 +39,7 @@ class ImageInput(Pipeline):
         # return len(self.images) > 0 or self.cap is not None
         return not self.finished
 
-    def image_ready(self):
+    def input_ready(self):
         """ Returns True if the next image is ready. """
 
         return True
@@ -48,6 +49,8 @@ class ImageInput(Pipeline):
         """ Generator that yields next image to be processed. """
 
         while len(images) > 0:
+            while not self.input_ready():
+                yield Pipeline.Empty
             image_id = 0
             image_file = images.popleft()
 
@@ -55,41 +58,45 @@ class ImageInput(Pipeline):
                 image_file, image_id = image_file
                 if isinstance(image_id, cv2.VideoCapture):
                     for pkg in gen_from_cap(image_file, image_id):
+                        while not self.input_ready():
+                            yield Pipeline.Empty
                         yield pkg
             else:
                 yield image_file, image_id, cv2.imread(image_file)
 
         self.finished = True
+
+        while True:
+            yield Pipeline.Empty
         
     def map(self, _=None):
         """ Returns the image content of the next image in the input. """
 
-        with tf.device("CPU:0"):
+        video_info = next(self.source)
+        if video_info == Pipeline.Empty:
+            return Pipeline.Empty
 
+        image_file, image_id, image = video_info
+
+        if image is None:
             try:
-                image_file, image_id, image = next(self.source)
-            except StopIteration:
+                image = np.reshape(
+                    np.fromfile(image_file, dtype=np.uint8), cfg.MTAUR_DIMENSIONS)
+            except Exception as e:
+                print(f"Got Exception: {e}")
+                print(
+                    f"*** Error: byte length not recognized or file: {image_file} ***")
                 return Pipeline.Empty
 
-            if image is None:
-                try:
-                    image = np.reshape(
-                        np.fromfile(image_file, dtype=np.uint8), cfg.MTAUR_DIMENSIONS)
-                except Exception as e:
-                    print(f"Got Exception: {e}")
-                    print(
-                        f"*** Error: byte length not recognized or file: {image_file} ***")
-                    return Pipeline.Empty
+        pp = tf.image.resize(image, (self.size, self.size)) / 255.0
+        preproc_image = self.preprocess(pp)
 
-            pp = tf.image.resize(image, (self.size, self.size)) / 255.0
-            preproc_image = self.preprocess(pp)
+        data = {
+            "image_path": image_file,
+            "image_id": image_id,
+            "image": image,
+            "predictions": preproc_image,
+            "meta": None
+        }
 
-            data = {
-                "image_path": image_file,
-                "image_id": image_id,
-                "image": image,
-                "predictions": preproc_image,
-                "meta": None
-            }
-
-            return data
+        return data

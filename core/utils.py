@@ -398,15 +398,16 @@ def build_preproc(size):
     return preproc
 
 
-def build_predictor(framework, weights, size):
+def build_predictor(framework, weights, size, quick_load=False):
     """ Returns function used to make predictions. """
 
     if framework == 'tf':
-        model = tf.keras.models.load_model(weights, compile=False)
+        predict = tf.keras.models.load_model(weights, compile=False)
         spec = (tf.TensorSpec((1, size, size, 3), dtype=tf.dtypes.float32),)
 
-        predict = tf.function(model, input_signature=spec, jit_compile=True)
-
+        if not quick_load:
+            predict = tf.function(predict, input_signature=spec, jit_compile=True)
+            
 
     elif framework == 'tflite':
         model = tf.lite.Interpreter(model_path=weights)

@@ -1,3 +1,4 @@
+from multiprocessing import Pipe
 import tensorflow as tf
 
 from tfpipe.core.utils import get_init_img, build_predictor
@@ -23,7 +24,7 @@ class Predict(Pipeline):
 
             print("Loading model...")
             self.predict = build_predictor(
-                args.framework, args.weights, args.size)
+                args.framework, args.weights, args.size, args.quick_load)
 
             print("Inferencing Test Image...")
 
@@ -36,6 +37,11 @@ class Predict(Pipeline):
         model is created when object is initialized. """
 
         return True
+    
+    def input_ready(self):
+        """ Returns True if GPU is ready for next frame. """
+
+        return True
 
     def is_working(self):
         """ Returns False because predictions are done linearly. """
@@ -44,6 +50,9 @@ class Predict(Pipeline):
 
     def map(self, data):
         # print('prd')
+        if data == Pipeline.Empty:
+            return Pipeline.Skip
+            
         with tf.device(self.device):
             data["predictions"] = self.predict(data["predictions"])
 

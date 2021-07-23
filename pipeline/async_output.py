@@ -22,32 +22,31 @@ class AsyncOutput(Pipeline):
         
         def run(self):
             tf.config.set_visible_devices([], "GPU")
-            with tf.device("CPU:0"):
-                while True:
-                    data = self.output_queue.get()
-                    if data == Pipeline.Exit:
-                        break
+            while True:
+                data = self.output_queue.get()
+                if data == Pipeline.Exit:
+                    break
 
-                    boxes, scores = data["predictions"]
+                boxes, scores = data["predictions"]
 
-                    boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
-                        boxes,
-                        scores,
-                        max_output_size_per_class=50,
-                        max_total_size=50,
-                        iou_threshold=self.iou_thresh,
-                        score_threshold=self.score_thresh
-                    )
+                boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
+                    boxes,
+                    scores,
+                    max_output_size_per_class=50,
+                    max_total_size=50,
+                    iou_threshold=self.iou_thresh,
+                    score_threshold=self.score_thresh
+                )
 
-                    pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(),
-                                valid_detections.numpy()]
+                pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(),
+                            valid_detections.numpy()]
 
-                    annotated_image = draw_bbox(
-                        data["image"].copy(), pred_bbox, self.classes)
+                annotated_image = draw_bbox(
+                    data["image"].copy(), pred_bbox, self.classes)
 
-                    cv2.imshow("Output", annotated_image)
-                    cv2.waitKey(1)
-                    # cv2.imwrite(data["image_path"], annotated_image)
+                cv2.imshow("Output", annotated_image)
+                cv2.waitKey(1)
+                # cv2.imwrite(data["image_path"], annotated_image)
 
     def __init__(self, args):
         self.output_queue = Queue()

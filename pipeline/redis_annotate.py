@@ -23,20 +23,19 @@ class RedisAnnotate(Pipeline):
     def annotate_predictions(self, data):
         boxes, scores = data["predictions"]
 
-        with tf.device("CPU:0"):
-            boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
-                boxes,
-                scores,
-                max_output_size_per_class=50,
-                max_total_size=50,
-                iou_threshold=self.iou_thresh,
-                score_threshold=self.score_thresh
-            )
+        boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
+            boxes,
+            scores,
+            max_output_size_per_class=50,
+            max_total_size=50,
+            iou_threshold=self.iou_thresh,
+            score_threshold=self.score_thresh
+        )
 
-            pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(),
-                        valid_detections.numpy()]
+        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(),
+                    valid_detections.numpy()]
 
-            annotated_output = convert_redis(
-                data["image_path"], data["image"].shape, self.num_classes, pred_bbox)
+        annotated_output = convert_redis(
+            data["image_path"], data["image"].shape, self.num_classes, pred_bbox)
 
-            data[self.dst] = annotated_output
+        data[self.dst] = annotated_output

@@ -11,7 +11,7 @@ from time import time
 class AsyncPredictor(Process):
     """ The asynchronous predictor. """
 
-    def __init__(self, args, device, vram, task_queue, result_queue):
+    def __init__(self, args, device, vram, task_queue, result_queue, quick_load=False):
         self.size = args.size
         self.weights = args.weights
         self.framework = args.framework
@@ -19,6 +19,7 @@ class AsyncPredictor(Process):
         self.vram = vram
         self.task_queue = task_queue
         self.result_queue = result_queue
+        self.quick_load = quick_load
 
         self.ready = Value('i', 0)
 
@@ -38,7 +39,7 @@ class AsyncPredictor(Process):
 
             # Create the model and prediction function
             print(f"Building Model for Device: {self.device}")
-            predict = build_predictor(self.framework, self.weights, self.size)
+            predict = build_predictor(self.framework, self.weights, self.size, self.quick_load)
 
             print(f"Inferencing Test Image: {self.device}")
             predict(get_init_img(self.size))
@@ -72,6 +73,7 @@ class AsyncPredict(Pipeline):
 
     def __init__(self, args, is_redis):
         gpus = tf.config.list_physical_devices("GPU")
+        tf.config.set_visible_devices([], "GPU")
         
         gpu_spec = loads(args.gpu_spec)
         num_gpus = len(gpus) if args.gpus == "all" or gpu_spec else int(args.gpus)
@@ -81,16 +83,19 @@ class AsyncPredict(Pipeline):
         # Number of inputs and outputs
         self.inx = self.outx = 0
 
-        self.task_queue = Queue(maxsize=1 if is_redis else 0)
+        self.task_queue = Queue()
         self.result_queue = Queue()
+        self.cache = dict()
         self.workers = list()
 
 
         # Create GPU Predictors
         for gpu_id in (range(num_gpus) if not gpu_spec else gpu_spec):
             worker = AsyncPredictor(
-                args, gpu_id, args.vram, self.task_queue, self.result_queue)
+                args, gpu_id, args.vram, self.task_queue, self.result_queue, args.quick_load)
             self.workers.append(worker)
+
+        self.num_gpus = len(self.workers)
 
         # Start the Jobs
         for w in self.workers:
@@ -99,22 +104,44 @@ class AsyncPredict(Pipeline):
         super().__init__()
 
     def map(self, data):
-        if data != Pipeline.Empty and not self.task_queue.full():
+        if data != Pipeline.Empty:
+            data["c_id"] = self.inx
+            self.inx += 1
             self.put(data)
 
-        return self.get() if self.output_ready() else Pipeline.Skip
+        # return self.get() if self.output_ready() else Pipeline.Skip
+
+        # Guarantee output order...
+        if self.output_ready():
+            data = self.get()
+            if data["c_id"] == self.outx:
+                self.outx += 1
+                return data
+            else:
+                self.cache[data["c_id"]] = data
+
+        data = self.cache.pop(self.outx, None)
+        if data is not None:
+            self.outx += 1
+            return data
+        else:
+            return Pipeline.Skip
+        
 
     def put(self, data, block=False):
         """ Puts data in the task queue. """
 
-        self.inx += 1
         self.task_queue.put(data, block)
 
     def get(self):
         """ Returns first element in the output queue. """
 
-        self.outx += 1
         return self.result_queue.get()
+
+    def input_ready(self):
+        """ Returns True if GPUs are ready for next frame. """
+
+        return self.inx - self.outx < 2 * self.num_gpus
 
     def output_ready(self):
         """ Returns True if there is element in the output queue. """

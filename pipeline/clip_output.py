@@ -11,8 +11,17 @@ class ClipOutput(Pipeline):
         self.output_dir = output_dir
         self.video_ext = video_ext
         self.vid_pos = self.vid_neg = None
-
+        
         super().__init__()
+
+    def map(self, data):
+        if data["detection"]:
+            self.vid_pos.write(data["image"])
+        else:
+            self.vid_neg.write(data["image"])
+        
+        return None
+
 
     def prep_output(self, path, fps, resolution):
         clip_name = os.path.splitext(os.path.basename(path))[0]
@@ -28,11 +37,5 @@ class ClipOutput(Pipeline):
         self.vid_pos.release()
         self.vid_neg.release()
 
-    def map(self, data):
-        if data["detection"]:
-            self.vid_pos.write(data["image"])
-        else:
-            self.vid_neg.write(data["image"])
-        
-        return None
-
+       
+    

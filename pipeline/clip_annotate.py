@@ -22,21 +22,19 @@ class ClipAnnotate(Pipeline):
     def annotate_predictions(self, data):
         boxes, scores = data["predictions"]
 
-        with tf.device("CPU:0"):
+        boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
+            boxes,
+            scores,
+            max_output_size_per_class=50,
+            max_total_size=50,
+            iou_threshold=self.iou_thresh,
+            score_threshold=self.score_thresh
+        )
 
-            boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
-                boxes,
-                scores,
-                max_output_size_per_class=50,
-                max_total_size=50,
-                iou_threshold=self.iou_thresh,
-                score_threshold=self.score_thresh
-            )
+        # Metadata
+        if self.meta:
+            pass
+        
+        data["detection"] = bool(valid_detections[0]) # False if 0, True if nonzero
 
-            # Metadata
-            if self.meta:
-                pass
-            
-            data["detection"] = bool(valid_detections[0]) # False if 0, True if nonzero
-
-            # data[self.dst] = annotated_image
+        # data[self.dst] = annotated_image

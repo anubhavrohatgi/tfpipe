@@ -77,11 +77,10 @@ class RedisCapture(Pipeline):
 
         self.preprocess = build_preproc(size)
 
-        with tf.device("CPU:0"):
-            print("Preprocessing Test Image...")
-            test_image = cv2.imread(cfg.INIT_IMG)
-            pp = tf.image.resize(test_image, (self.size, self.size)) / 255.0
-            self.preprocess(pp)
+        print("Preprocessing Test Image...")
+        test_image = cv2.imread(cfg.INIT_IMG)
+        pp = tf.image.resize(test_image, (self.size, self.size)) / 255.0
+        self.preprocess(pp)
 
         super().__init__()
 
@@ -99,7 +98,7 @@ class RedisCapture(Pipeline):
 
         return self._worker.is_alive() or not self._worker.empty()
 
-    def image_ready(self):
+    def input_ready(self):
         """ Returns True if the next image is ready. """
 
         return not self._worker.empty()
@@ -107,39 +106,38 @@ class RedisCapture(Pipeline):
     def map(self, _=None):
         """ Returns the image content of the next image in the Redis stream. """
 
-        with tf.device("CPU:0"):
-            if not self.image_ready() or not self.is_working():
+        if not self.input_ready() or not self.is_working():
+            return Pipeline.Empty
+
+        image_file = self._worker.get()
+        if isinstance(image_file, list):
+                image_file, image_id = image_file
+
+        # print("Current File: " + image_file)
+
+        image = cv2.imread(image_file)
+
+        if image is None:
+            try:
+                image = np.reshape(
+                    np.fromfile(image_file, dtype=np.uint8), cfg.MTAUR_DIMENSIONS)
+            except Exception as e:
+                print(f"Got Exception: {e}")
+                print(
+                    f"*** Error: byte length not recognized or file: {image_file} ***")
                 return Pipeline.Empty
 
-            image_file = self._worker.get()
-            if isinstance(image_file, list):
-                    image_file, image_id = image_file
+        pp = tf.image.resize(image, (self.size, self.size)) / 255.0
+        preproc_image = self.preprocess(pp)
 
-            # print("Current File: " + image_file)
+        data = {
+            "image_path": image_file,
+            "image": image,
+            "predictions": preproc_image,
+            "meta": None
+        }
 
-            image = cv2.imread(image_file)
-
-            if image is None:
-                try:
-                    image = np.reshape(
-                        np.fromfile(image_file, dtype=np.uint8), cfg.MTAUR_DIMENSIONS)
-                except Exception as e:
-                    print(f"Got Exception: {e}")
-                    print(
-                        f"*** Error: byte length not recognized or file: {image_file} ***")
-                    return Pipeline.Empty
-
-            pp = tf.image.resize(image, (self.size, self.size)) / 255.0
-            preproc_image = self.preprocess(pp)
-
-            data = {
-                "image_path": image_file,
-                "image": image,
-                "predictions": preproc_image,
-                "meta": None
-            }
-
-            return data
+        return data
 
     def cleanup(self):
         """ Closes video file or capturing device. This function should be 

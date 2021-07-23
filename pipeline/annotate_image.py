@@ -24,27 +24,25 @@ class AnnotateImage(Pipeline):
     def annotate_predictions(self, data):
         boxes, scores = data["predictions"]
 
-        with tf.device("CPU:0"):
+        boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
+            boxes,
+            scores,
+            max_output_size_per_class=50,
+            max_total_size=50,
+            iou_threshold=self.iou_thresh,
+            score_threshold=self.score_thresh
+        )
 
-            boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
-                boxes,
-                scores,
-                max_output_size_per_class=50,
-                max_total_size=50,
-                iou_threshold=self.iou_thresh,
-                score_threshold=self.score_thresh
-            )
+        pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(),
+                        valid_detections.numpy()]
 
-            pred_bbox = [boxes.numpy(), scores.numpy(), classes.numpy(),
-                         valid_detections.numpy()]
+        # Metadata
+        if self.meta:
+            metadata = get_meta(
+                data["image"].shape, data["image_path"], data["image_id"], pred_bbox, self.classes)
+            data["meta"] = metadata
 
-            # Metadata
-            if self.meta:
-                metadata = get_meta(
-                    data["image"].shape, data["image_path"], data["image_id"], pred_bbox, self.classes)
-                data["meta"] = metadata
+        annotated_image = draw_bbox(
+            data["image"].copy(), pred_bbox, self.classes)
 
-            annotated_image = draw_bbox(
-                data["image"].copy(), pred_bbox, self.classes)
-
-            data[self.dst] = annotated_image
+        data[self.dst] = annotated_image
