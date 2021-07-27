@@ -13,7 +13,6 @@ from tfpipe.core.libs.tensorflow import resize  # <-- needed for namespace
 
 ##### GENERAL #####
 
-
 def valid_img_extension(path):
     """ Returns True if `path` has a valid extension for an image. """
 
@@ -67,13 +66,6 @@ def images_from_dir(path: str):
     return images
 
 
-def read_class_names(class_file_name):
-    names = {}
-    with open(class_file_name, 'r') as data:
-        for ID, name in enumerate(data):
-            names[ID] = name.strip('\n')
-    return names
-
 def gen_from_cap(image_file, cap):
     """ Yields frames from a cv2.VideoCapture object. """
 
@@ -89,6 +81,28 @@ def gen_from_cap(image_file, cap):
         yield f"{image_file}-f{frame_id}", frame_id, frame
 
         frame_id += 1
+
+def set_saved_video(fps, resolution, output_path):
+    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
+    video = cv2.VideoWriter(output_path, fourcc, fps, resolution)
+
+    return video
+
+def save_video(frames, fps, resolution, output_path):
+    video = set_saved_video(fps, resolution, output_path)
+    for frame in frames:
+        video.write(frame)
+
+    video.release()
+
+
+def read_class_names(class_file_name):
+    names = {}
+    with open(class_file_name, 'r') as data:
+        for ID, name in enumerate(data):
+            names[ID] = name.strip('\n')
+    return names
+
 
 ###################
 

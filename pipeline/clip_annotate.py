@@ -6,7 +6,8 @@ from tfpipe.pipeline.pipeline import Pipeline
 class ClipAnnotate(Pipeline):
     """ Pipeline task for video frame annotation. """
 
-    def __init__(self, iou_thresh, score_thresh, meta, classes):
+    def __init__(self, dok, iou_thresh, score_thresh, meta, classes):
+        self.dok = dok
         self.iou_thresh = iou_thresh
         self.score_thresh = score_thresh
         self.meta = meta
@@ -35,6 +36,6 @@ class ClipAnnotate(Pipeline):
         if self.meta:
             pass
         
-        data["detection"] = bool(valid_detections[0]) # False if 0, True if nonzero
+        data[self.dok] = bool(valid_detections[0]) # False if 0, True if nonzero
 
         # data[self.dst] = annotated_image
