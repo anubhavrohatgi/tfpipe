@@ -92,7 +92,7 @@ class ClipOutput(Pipeline):
             self.vid_neg = cv2.VideoWriter(neg_output, fourcc, fps, resolution)
         
         if self.meta:
-            pass
+            self.metadata = dict()
 
         self.fps = fps
         self.resolution = resolution
