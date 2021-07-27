@@ -105,7 +105,8 @@ class ClipOutput(Pipeline):
             self.vid_neg.release()
         
         if self.meta:
-            meta_path = os.path.join(self.output_dir, f"{self.clip_name}-metadata.json")
+            extra = "predseg" if self.segment else "pred"
+            meta_path = os.path.join(self.output_dir, f"{self.clip_name}-{extra}-metadata.json")
             print(f"Writing metadata to: {meta_path}")
             with open(meta_path, "w") as f:
                 json.dump(self.metadata, f)
