@@ -22,8 +22,11 @@ class AnnotateImage(Pipeline):
         return data
 
     def annotate_predictions(self, data):
-        boxes, scores = data["predictions"]
-
+        # boxes, scores = data["predictions"]
+        # scores, boxes = data["predictions"].values()
+        boxes = data["predictions"]["tf.reshape_9"]
+        scores = data["predictions"]["tf.reshape_10"]
+        
         boxes, scores, classes, valid_detections = tf.image.combined_non_max_suppression(
             boxes,
             scores,

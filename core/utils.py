@@ -309,11 +309,16 @@ def get_devices():
 def get_init_img(size):
     """ Returns `cfg.INIT_IMG` as a Tensor. """
 
-    image = cv2.cvtColor(cv2.imread(cfg.INIT_IMG), cv2.COLOR_BGR2RGB)
-    image = [cv2.resize(image, (size, size)) / 255.0]
-    image = np.asanyarray(image).astype(np.float32)
+    # image = cv2.cvtColor(cv2.imread(cfg.INIT_IMG), cv2.COLOR_BGR2RGB)
+    # image = [cv2.resize(image, (size, size)) / 255.0]
+    # image = np.asanyarray(image).astype(np.float32)
+    image = cv2.imread(cfg.INIT_IMG)
+    pp = tf.image.resize(image, (size, size)) / 255.0
+    pp = tf.reverse(pp, [-1])
+    pp = tf.reshape(pp, (1, size, size, 3))
 
-    return tf.constant(image)
+    return pp
+    # return tf.constant(image)
 
 
 def filter_boxes(box_xywh, scores, input_shape, score_threshold=0.4):
@@ -416,10 +421,17 @@ def build_predictor(framework, weights, size, quick_load=False):
     """ Returns function used to make predictions. """
 
     if framework == 'tf':
-        predict = tf.keras.models.load_model(weights, compile=False)
+        # predict = tf.keras.models.load_model(weights, compile=False)
         spec = (tf.TensorSpec((1, size, size, 3), dtype=tf.dtypes.float32),)
 
+        from tensorflow.python.saved_model import signature_constants
+
+        model = tf.saved_model.load("checkpoints/test2")
+        predict = model.signatures[
+            signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
+        
         if not quick_load:
+            print("Loading XLA...")
             predict = tf.function(predict, input_signature=spec, jit_compile=True)
             
 
@@ -444,7 +456,7 @@ def build_predictor(framework, weights, size, quick_load=False):
     else:
         assert False, f"Invalid Framework: {framework}"
 
-    return predict
+    return predict, model
 
 
 ######################

@@ -1,4 +1,3 @@
-from multiprocessing import Pipe
 import tensorflow as tf
 
 from tfpipe.core.utils import get_init_img, build_predictor
@@ -21,9 +20,8 @@ class Predict(Pipeline):
         self.device = vgpu.name
 
         with tf.device(self.device):
-
             print("Loading model...")
-            self.predict = build_predictor(
+            self.predict, self.model = build_predictor(
                 args.framework, args.weights, args.size, args.quick_load)
 
             print("Inferencing Test Image...")

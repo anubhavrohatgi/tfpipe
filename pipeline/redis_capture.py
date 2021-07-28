@@ -70,7 +70,7 @@ class RedisCapture(Pipeline):
 
             return self.image_queue.get()
 
-    def __init__(self, redis_info, size):
+    def __init__(self, redis_info, size, input_ready=None):
 
         self._worker = self._InputStream(redis_info)
         self.size = size

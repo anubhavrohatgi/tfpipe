@@ -39,7 +39,7 @@ class AsyncPredictor(Process):
 
             # Create the model and prediction function
             print(f"Building Model for Device: {self.device}")
-            predict = build_predictor(self.framework, self.weights, self.size, self.quick_load)
+            predict, model = build_predictor(self.framework, self.weights, self.size, self.quick_load)
 
             print(f"Inferencing Test Image: {self.device}")
             predict(get_init_img(self.size))
