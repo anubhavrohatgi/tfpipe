@@ -1,12 +1,14 @@
 import tensorflow as tf
 from multiprocessing import Process, Queue, Value
-from ujson import loads
+from json import loads
 
 from tfpipe.core.utils import get_init_img, build_predictor
 from tfpipe.pipeline.pipeline import Pipeline
 
-from time import time
+from time import time, sleep
 
+# PTDiag
+from ptdiag import PTProcess
 
 class AsyncPredictor(Process):
     """ The asynchronous predictor. """
@@ -36,36 +38,59 @@ class AsyncPredictor(Process):
 
         vgpu = tf.config.list_logical_devices("GPU")[0]
         with tf.device(vgpu.name):
+            # PTDiag
+            ptp = PTProcess(f"GPU:{self.device} @ async_predict")
+
+            ## Add the test img to the task queue for queue warmup
+            ## Done before model loading to guarantee that all GPUs have access to a test img
+            test_img = get_init_img(self.size)
+            self.task_queue.put({"predictions": test_img, "c_id": -1})
 
             # Create the model and prediction function
             print(f"Building Model for Device: {self.device}")
             predict, model = build_predictor(self.framework, self.weights, self.size, self.quick_load)
 
             print(f"Inferencing Test Image: {self.device}")
-            predict(get_init_img(self.size))
+            ## Significant overhead with task_queue, so it needs a warmup too
+            assert not self.task_queue.empty(), f"Error: Task Queue Empty | GPU: {self.device}"
+            ptp.on()
+            predict(self.task_queue.get()["predictions"])
+            ptp.off()
 
-            # Set ready flag
+            ## Set ready flag
             self.ready.value = 1
             print(f"Ready: {self.device}")
 
-            # index = 0
-            # t = time()
-            
+            index = loop_time = gpu_time = 0
+
+            ## Lets other GPUs inference test image
+            while not self.task_queue.empty():
+                pass
+
+            # img = get_init_img(self.size)
+            # for _ in range(500):
             while True:
+                # tt = time()
                 data = self.task_queue.get()
                 if data == Pipeline.Exit:
                     break
-
+                
+                ptp.on()
+                # gt = time()
+                # out = predict(img)
                 data["predictions"] = predict(data["predictions"])
-                # print(f"Device: {self.device} | Time: {time() - t} s")
+                # gpu_time += time() - gt
+                ptp.off()
+                # sleep(.5)
 
                 self.result_queue.put(data)
 
-                # print(self.device, "done")
-                # index += 1
+                # loop_time += time() - tt
+                index += 1
             
-            # runtime = time() - t
-            # print(f"GPU: {self.device} | Images: {index} | Runtime: {runtime} | FPS: {index/runtime}")
+            # s = f"GPU: {self.device} | Images: {index} | Runtime: {loop_time} s | FPS: {index/loop_time}"
+            # s += f" | GPU Runtime: {gpu_time} s | GPU FPS: {index/gpu_time}"
+            # print(s)
 
 
 class AsyncPredict(Pipeline):
@@ -114,11 +139,16 @@ class AsyncPredict(Pipeline):
         # Guarantee output order...
         if self.output_ready():
             data = self.get()
-            if data["c_id"] == self.outx:
+            c_id = data["c_id"]
+
+            if c_id == -1:
+                return Pipeline.Skip
+
+            if c_id == self.outx:
                 self.outx += 1
                 return data
             else:
-                self.cache[data["c_id"]] = data
+                self.cache[c_id] = data
 
         data = self.cache.pop(self.outx, None)
         if data is not None:

@@ -2,9 +2,5 @@ tensorflow==2.5.0
 tensorflow-gpu==2.5.0
 opencv-python==4.5.2.54
 redis==3.5.3
-lxml
 tqdm
-matplotlib
 easydict
-pillow
-ujson

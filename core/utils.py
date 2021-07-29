@@ -5,7 +5,7 @@ import colorsys
 import numpy as np
 import tensorflow as tf
 from tfpipe.core.config import cfg
-from ujson import load
+from json import load
 from redis import Redis
 
 from tfpipe.core.libs.tensorflow import resize  # <-- needed for namespace
@@ -406,7 +406,7 @@ def build_preproc(size):
 
     spec = (tf.TensorSpec((size, size, 3), dtype=tf.dtypes.float32),)
 
-    @ tf.function(input_signature=spec, jit_compile=True)
+    @tf.function(input_signature=spec, jit_compile=True)
     def preproc(image):
 
         # Convert from BGR to RGB
@@ -426,12 +426,11 @@ def build_predictor(framework, weights, size, quick_load=False):
 
         from tensorflow.python.saved_model import signature_constants
 
-        model = tf.saved_model.load("checkpoints/test2")
+        model = tf.saved_model.load("checkpoints/test4")
         predict = model.signatures[
             signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
         
         if not quick_load:
-            print("Loading XLA...")
             predict = tf.function(predict, input_signature=spec, jit_compile=True)
             
 

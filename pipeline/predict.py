@@ -3,6 +3,10 @@ import tensorflow as tf
 from tfpipe.core.utils import get_init_img, build_predictor
 from tfpipe.pipeline.pipeline import Pipeline
 
+from time import time
+
+# PTDiag
+from ptdiag import PTProcess
 
 class Predict(Pipeline):
     """ The pipeline task for single-process predicting. """
@@ -30,6 +34,10 @@ class Predict(Pipeline):
 
         super().__init__()
 
+        self.index = self.loop_time = self.gpu_time = 0
+
+        self.ptp = PTProcess("predict")
+
     def infer_ready(self):
         """ Returns True when model is ready for inference. Always True since
         model is created when object is initialized. """
@@ -52,9 +60,15 @@ class Predict(Pipeline):
             return Pipeline.Skip
             
         with tf.device(self.device):
+            # t = time()
+            self.ptp.on()
             data["predictions"] = self.predict(data["predictions"])
-
+            self.ptp.off()
+            # self.gpu_time += time() - t
+            # self.index += 1
         return data
 
     def cleanup(self):
+        # print(f"GPU: {self.device} | Images: {self.index} | Runtime: {self.gpu_time} s | FPS: {self.index/self.gpu_time}")
+
         pass

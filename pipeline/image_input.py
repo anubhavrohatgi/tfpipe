@@ -7,6 +7,8 @@ from tfpipe.core.config import cfg
 from tfpipe.core.utils import images_from_dir, gen_from_cap, build_preproc
 from tfpipe.pipeline.pipeline import Pipeline
 
+# PTDiag
+from ptdiag import PTProcess
 
 class ImageInput(Pipeline):
     """ Pipeline task to capture images. """
@@ -33,6 +35,8 @@ class ImageInput(Pipeline):
 
         super().__init__(source=self.generator(deque(images)))
 
+        self.ptp = PTProcess("image input")
+
     def is_working(self):
         """ Returns True if there are images yet to be captured. """
 
@@ -48,9 +52,12 @@ class ImageInput(Pipeline):
     def generator(self, images):
         """ Generator that yields next image to be processed. """
 
+        ptp = PTProcess("image gen")
+
         while len(images) > 0:
             while not self.input_ready():
                 yield Pipeline.Empty
+            ptp.on()
             image_id = 0
             image_file = images.popleft()
 
@@ -62,7 +69,9 @@ class ImageInput(Pipeline):
                             yield Pipeline.Empty
                         yield pkg
             else:
-                yield image_file, image_id, cv2.imread(image_file)
+                image = cv2.imread(image_file)
+                ptp.off()
+                yield image_file, image_id, image
 
         self.finished = True
 
@@ -75,6 +84,8 @@ class ImageInput(Pipeline):
         video_info = next(self.source)
         if video_info == Pipeline.Empty:
             return Pipeline.Empty
+        
+        self.ptp.on()
 
         image_file, image_id, image = video_info
 
@@ -98,5 +109,7 @@ class ImageInput(Pipeline):
             "predictions": preproc_image,
             "meta": None
         }
+
+        self.ptp.off()
 
         return data
