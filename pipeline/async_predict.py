@@ -128,7 +128,11 @@ class AsyncPredict(Pipeline):
 
         super().__init__()
 
+        self.ptp = PTProcess("main @ async predict")
+
     def map(self, data):
+        self.ptp.on()
+
         if data != Pipeline.Empty:
             data["c_id"] = self.inx
             self.inx += 1
@@ -142,10 +146,12 @@ class AsyncPredict(Pipeline):
             c_id = data["c_id"]
 
             if c_id == -1:
+                self.ptp.off()
                 return Pipeline.Skip
 
             if c_id == self.outx:
                 self.outx += 1
+                self.ptp.off()
                 return data
             else:
                 self.cache[c_id] = data
@@ -153,14 +159,16 @@ class AsyncPredict(Pipeline):
         data = self.cache.pop(self.outx, None)
         if data is not None:
             self.outx += 1
+            self.ptp.off()
             return data
         else:
+            self.ptp.off()
             return Pipeline.Skip
         
 
     def put(self, data, block=False):
         """ Puts data in the task queue. """
-
+    
         self.task_queue.put(data, block)
 
     def get(self):

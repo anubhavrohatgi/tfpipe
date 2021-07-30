@@ -3,6 +3,8 @@ import cv2
 
 from tfpipe.pipeline.pipeline import Pipeline
 
+# PTDiag
+from ptdiag import PTProcess
 
 class ImageOutput(Pipeline):
     """ Pipeline task that delivers the images to some output. """
@@ -23,12 +25,17 @@ class ImageOutput(Pipeline):
 
         super().__init__()
 
+        self.ptp = PTProcess("image output")
+
     def map(self, data):
 
         # print("im out")
+        self.ptp.on()
         if not self.meta:
             self.export_img(data)
 
+        self.ptp.off()
+        
         return data
 
     def export_img(self, data):

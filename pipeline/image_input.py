@@ -33,7 +33,24 @@ class ImageInput(Pipeline):
         pp = tf.image.resize(test_image, (self.size, self.size)) / 255.0
         self.preprocess(pp)
 
-        super().__init__(source=self.generator(deque(images)))
+        pp_images = list()
+        for image_file, image_id, image in self.generator(deque(images)):
+            pp = tf.image.resize(image, (self.size, self.size)) / 255.0
+            pp = self.preprocess(pp)
+
+            data = {
+                "image_path": image_file,
+                "image_id": image_id,
+                "image": image,
+                "predictions": pp,
+                "meta": None
+            }
+            pp_images.append(data)
+
+        print(len(pp_images))
+
+        super().__init__(source=pp_images)
+        # super().__init__(source=self.generator(deque(images)))
 
         self.ptp = PTProcess("image input")
 
@@ -73,16 +90,23 @@ class ImageInput(Pipeline):
                 ptp.off()
                 yield image_file, image_id, image
 
-        self.finished = True
+        # self.finished = True
 
-        while True:
-            yield Pipeline.Empty
+        # while True:
+        #     yield Pipeline.Empty
         
     def map(self, _=None):
         """ Returns the image content of the next image in the input. """
 
-        video_info = next(self.source)
-        if video_info == Pipeline.Empty:
+        self.ptp.on()
+        if any(self.source):
+            vi = self.source.pop()
+            self.ptp.off()
+            return vi
+        # if video_info == Pipeline.Empty:
+        else:
+            self.ptp.off()
+            self.finished = True
             return Pipeline.Empty
         
         self.ptp.on()

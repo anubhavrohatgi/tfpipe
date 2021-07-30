@@ -3,6 +3,8 @@ import tensorflow as tf
 from tfpipe.pipeline.pipeline import Pipeline
 from tfpipe.core.utils import read_class_names, draw_bbox, get_meta, filter_boxes, fbox
 
+# PTDiag
+from ptdiag import PTProcess
 
 class AnnotateImage(Pipeline):
     """ Pipeline task for image annotation. """
@@ -16,6 +18,8 @@ class AnnotateImage(Pipeline):
 
         super().__init__()
 
+        self.ptp = PTProcess("annotations")
+
     def map(self, data):
         self.annotate_predictions(data)
 
@@ -24,6 +28,8 @@ class AnnotateImage(Pipeline):
     def annotate_predictions(self, data):
         # boxes, scores = data["predictions"]
         # scores, boxes = data["predictions"].values()
+        self.ptp.on()
+
         boxes = data["predictions"]["tf.reshape_9"]
         scores = data["predictions"]["tf.reshape_10"]
         
@@ -49,3 +55,5 @@ class AnnotateImage(Pipeline):
             data["image"].copy(), pred_bbox, self.classes)
 
         data[self.dst] = annotated_image
+
+        self.ptp.off()
