@@ -60,9 +60,13 @@ class CreateModel(Pipeline):
                 prob_tensors.append(output_tensors[1])
         pred_bbox = tf.concat(bbox_tensors, axis=1)
         pred_prob = tf.concat(prob_tensors, axis=1)
+
         if self.framework == 'tflite':
             pred = (pred_bbox, pred_prob)
         else:
             pred = filter_boxes_v3(pred_bbox, pred_prob, (self.input_size, self.input_size))
+
+        # pred = tf.concat([pred_bbox, pred_prob], axis=-1)
+        # tf.split(c, (4, -1), axis=-1)
 
         return pred

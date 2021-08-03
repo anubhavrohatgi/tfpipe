@@ -4,6 +4,7 @@ import random
 import colorsys
 import numpy as np
 import tensorflow as tf
+from tensorflow.python.saved_model import signature_constants
 from tfpipe.core.config import cfg
 from json import load
 from redis import Redis
@@ -424,14 +425,12 @@ def build_predictor(framework, weights, size, quick_load=False):
         # predict = tf.keras.models.load_model(weights, compile=False)
         spec = (tf.TensorSpec((1, size, size, 3), dtype=tf.dtypes.float32),)
 
-        from tensorflow.python.saved_model import signature_constants
-
-        model = tf.saved_model.load("checkpoints/test4")
-        predict = model.signatures[
-            signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
+        model = tf.saved_model.load(weights)
+        predict = model.signatures[signature_constants.DEFAULT_SERVING_SIGNATURE_DEF_KEY]
         
-        if not quick_load:
-            predict = tf.function(predict, input_signature=spec, jit_compile=True)
+        predict = tf.function(predict, input_signature=spec)
+        # if not quick_load:
+        #     predict = tf.function(predict, input_signature=spec, jit_compile=True)
             
 
     elif framework == 'tflite':

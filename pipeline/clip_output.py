@@ -71,7 +71,6 @@ class ClipOutput(Pipeline):
             self.cache.clear()
 
 
-
     def prep_output(self, path, fps, resolution):
         self.clip_name = os.path.splitext(os.path.basename(path))[0]
 
