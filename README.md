@@ -40,4 +40,4 @@ To read the output of the model, have a seperate `redis-cli` subscribe to the `b
 
 ## For JIT
 
-put libdevice.10.bc in dir
+put libdevice.10.bc in dir, but look at XLA error
